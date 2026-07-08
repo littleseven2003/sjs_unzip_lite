@@ -10,6 +10,8 @@ use tauri::AppHandle;
 use crate::config::PasswordConfig;
 use crate::error::AppError;
 use crate::task::context::TaskContext;
+use crate::task::safety;
+use crate::task::scanner;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TaskInput {
@@ -86,8 +88,175 @@ pub async fn save_passwords(config: PasswordConfig) -> Result<(), AppError> {
 
 #[tauri::command]
 pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
-    // TODO: 实现预检查逻辑
-    Err(AppError::Unknown("未实现".to_string()))
+    let root_dir = PathBuf::from(&input.root_dir);
+
+    // 安全校验
+    safety::validate_root_dir(&root_dir)?;
+
+    // 扫描目录
+    let scan_result = scanner::scan_root_recursively(&root_dir)?;
+
+    // 构建默认最终文件夹名
+    let default_final_folder_name = root_dir
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    // 构建分卷组预览
+    let volume_groups: Vec<VolumeGroupPreview> = scan_result
+        .volume_groups
+        .iter()
+        .map(|group| {
+            let first_volume_path = group
+                .files
+                .first()
+                .map(|f| f.path.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            let total_size: u64 = group.files.iter().map(|f| f.size).sum();
+
+            // 检查缺失编号
+            let mut indexes: Vec<u32> = group.files.iter().map(|f| f.index).collect();
+            indexes.sort();
+            let missing_indexes: Vec<u32> = if !indexes.is_empty() {
+                let min = *indexes.first().unwrap();
+                let max = *indexes.last().unwrap();
+                (min..=max).filter(|i| !indexes.contains(i)).collect()
+            } else {
+                Vec::new()
+            };
+
+            // 检查重复编号
+            let mut seen = std::collections::HashSet::new();
+            let mut duplicate_indexes = Vec::new();
+            for idx in &indexes {
+                if !seen.insert(idx) {
+                    duplicate_indexes.push(*idx);
+                }
+            }
+
+            VolumeGroupPreview {
+                id: group.id.clone(),
+                base_name: group.base_name.clone(),
+                first_volume_path,
+                volume_count: group.files.len() as u32,
+                total_size,
+                missing_indexes,
+                duplicate_indexes,
+                files: group
+                    .files
+                    .iter()
+                    .map(|f| VolumeFilePreview {
+                        path: f.path.to_string_lossy().to_string(),
+                        index: f.index,
+                        size: f.size,
+                    })
+                    .collect(),
+            }
+        })
+        .collect();
+
+    // 构建额外文件预览
+    let extra_files: Vec<FilePreview> = scan_result
+        .extra_files
+        .iter()
+        .map(|path| {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let size = path.metadata().map(|m| m.len()).unwrap_or(0);
+            FilePreview {
+                path: path.to_string_lossy().to_string(),
+                name,
+                size,
+                is_dir: false,
+            }
+        })
+        .collect();
+
+    let extra_folders: Vec<FilePreview> = scan_result
+        .extra_dirs
+        .iter()
+        .map(|path| {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            FilePreview {
+                path: path.to_string_lossy().to_string(),
+                name,
+                size: 0,
+                is_dir: true,
+            }
+        })
+        .collect();
+
+    // 构建警告
+    let mut warnings = Vec::new();
+
+    if volume_groups.is_empty() {
+        warnings.push(WarningItem {
+            code: "NO_VOLUMES".to_string(),
+            message: "未找到 7z 分卷文件，请确认选择的文件夹是否正确。".to_string(),
+            detail: None,
+        });
+    }
+
+    if volume_groups.len() > 1 {
+        warnings.push(WarningItem {
+            code: "MULTIPLE_GROUPS".to_string(),
+            message: format!("找到 {} 组分卷文件，将需要选择处理其中一组。", volume_groups.len()),
+            detail: None,
+        });
+    }
+
+    for group in &volume_groups {
+        if !group.missing_indexes.is_empty() {
+            warnings.push(WarningItem {
+                code: "MISSING_VOLUMES".to_string(),
+                message: format!(
+                    "分卷组「{}」缺少编号：{:?}",
+                    group.base_name, group.missing_indexes
+                ),
+                detail: None,
+            });
+        }
+        if !group.duplicate_indexes.is_empty() {
+            warnings.push(WarningItem {
+                code: "DUPLICATE_VOLUMES".to_string(),
+                message: format!(
+                    "分卷组「{}」存在重复编号：{:?}",
+                    group.base_name, group.duplicate_indexes
+                ),
+                detail: None,
+            });
+        }
+    }
+
+    if !extra_files.is_empty() {
+        warnings.push(WarningItem {
+            code: "EXTRA_FILES".to_string(),
+            message: format!("检测到 {} 个额外文件，继续处理可能会在后续清理步骤中删除这些内容。", extra_files.len()),
+            detail: None,
+        });
+    }
+
+    // 判断是否可以开始
+    let can_start = !volume_groups.is_empty()
+        && volume_groups.iter().all(|g| g.missing_indexes.is_empty())
+        && volume_groups.len() <= 1
+        && (extra_files.is_empty() || input.continue_on_initial_extra_files);
+
+    Ok(TaskPreview {
+        root_dir: input.root_dir,
+        default_final_folder_name,
+        volume_groups,
+        extra_files,
+        extra_folders,
+        warnings,
+        can_start,
+    })
 }
 
 #[tauri::command]
