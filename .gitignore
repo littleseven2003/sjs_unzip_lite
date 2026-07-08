@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+target/
+src-tauri/target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Lock files (保留 pnpm-lock.yaml)
+package-lock.json
+yarn.lock
+
+# Tauri
+src-tauri/binaries/*.exe
+src-tauri/binaries/7zz-*
+!src-tauri/binaries/.gitkeep
+
+# Internal docs (not for remote)
+AGENTS.md
