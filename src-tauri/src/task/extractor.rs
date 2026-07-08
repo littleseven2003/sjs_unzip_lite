@@ -71,10 +71,27 @@ async fn run_7zz_extract(
         cmd.arg(format!("-p{}", password));
     }
 
-    let output = cmd
-        .output()
+    // 启动子进程
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| AppError::ExtractFailed(e.to_string()))?;
+
+    // 注册子进程 ID 到取消模块
+    if let Some(pid) = child.id() {
+        super::cancel::register_child_pid(pid);
+    }
+
+    // 等待进程完成
+    let output = child
+        .wait_with_output()
         .await
         .map_err(|e| AppError::ExtractFailed(e.to_string()))?;
+
+    // 注销子进程
+    super::cancel::unregister_child_pid();
+
+    // 检查是否被取消
+    super::cancel::check_cancelled()?;
 
     Ok(ExtractResult {
         success: output.status.success(),
