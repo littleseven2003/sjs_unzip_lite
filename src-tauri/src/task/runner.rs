@@ -16,24 +16,40 @@ pub async fn run_task(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppE
     // 重置取消标记
     super::cancel::reset();
 
+    // 创建日志文件写入器
+    let log_writer = super::log_file::LogFileWriter::new()?;
+    log_writer.write_header(
+        &ctx.root_dir.to_string_lossy(),
+        &ctx.final_folder_name,
+    )?;
+
     // 执行任务，处理取消情况
-    match run_task_inner(ctx, app).await {
-        Ok(()) => Ok(()),
+    match run_task_inner(ctx, app, &log_writer).await {
+        Ok(()) => {
+            log_writer.write_footer(true)?;
+            Ok(())
+        }
         Err(AppError::Cancelled) => {
             emit_progress(app, TaskStatus::Cancelled, "任务已取消", 0, None);
-            emit_log(app, LogEvent::warning("任务已取消", None));
+            emit_log_and_file(app, &log_writer, LogEvent::warning("任务已取消", None));
+            log_writer.write_footer(false)?;
             Err(AppError::Cancelled)
         }
         Err(e) => {
             emit_progress(app, TaskStatus::Failed, "处理失败", 0, Some(e.to_string()));
-            emit_log(app, LogEvent::error(format!("处理失败：{}", e), None));
+            emit_log_and_file(app, &log_writer, LogEvent::error(format!("处理失败：{}", e), None));
+            log_writer.write_footer(false)?;
             Err(e)
         }
     }
 }
 
 /// 任务主流程内部实现
-async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppError> {
+async fn run_task_inner(
+    ctx: &mut TaskContext,
+    app: &AppHandle,
+    log_writer: &super::log_file::LogFileWriter,
+) -> Result<(), AppError> {
     // 校验根目录
     safety::validate_root_dir(&ctx.root_dir)?;
 
@@ -46,7 +62,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
     }
 
     emit_progress(app, TaskStatus::Scanning, "正在扫描文件夹", 5, None);
-    emit_log(app, LogEvent::info("开始扫描文件夹", Some(ctx.root_dir.display().to_string())));
+    emit_log_and_file(app, log_writer, LogEvent::info("开始扫描文件夹", Some(ctx.root_dir.display().to_string())));
 
     // 扫描目录
     let scan_result = scanner::scan_root_recursively(&ctx.root_dir)?;
@@ -74,7 +90,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
 
     ctx.selected_volume_group = Some(volume_group.clone());
 
-    emit_log(app, LogEvent::info(
+    emit_log_and_file(app, log_writer, LogEvent::info(
         format!("找到分卷组：{}，共 {} 个文件", volume_group.base_name, volume_group.files.len()),
         None,
     ));
@@ -83,13 +99,13 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
     super::cancel::check_cancelled()?;
     emit_progress(app, TaskStatus::MovingVolumes, "正在归集分卷文件", 15, None);
     mover::move_volumes_to_root(&volume_group, &ctx.root_dir)?;
-    emit_log(app, LogEvent::success("分卷文件已移动到根目录", None));
+    emit_log_and_file(app, log_writer, LogEvent::success("分卷文件已移动到根目录", None));
 
     // 清理空文件夹
     emit_progress(app, TaskStatus::CleaningFolders, "正在清理空文件夹", 25, None);
     let removed = mover::remove_empty_source_folders(&ctx.root_dir)?;
     if !removed.is_empty() {
-        emit_log(app, LogEvent::info(format!("已清理 {} 个空文件夹", removed.len()), None));
+        emit_log_and_file(app, log_writer, LogEvent::info(format!("已清理 {} 个空文件夹", removed.len()), None));
     }
 
     // 解压 7z 分卷
@@ -113,7 +129,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
         &ctx.password_list,
     ).await?;
 
-    emit_log(app, LogEvent::success(
+    emit_log_and_file(app, log_writer, LogEvent::success(
         format!("解压成功，使用的密码序号：{}", password_index),
         None,
     ));
@@ -126,7 +142,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
             cleaner::delete_file(&path)?;
         }
     }
-    emit_log(app, LogEvent::success("已删除原始分卷文件", None));
+    emit_log_and_file(app, log_writer, LogEvent::success("已删除原始分卷文件", None));
 
     // txt → rar 循环
     for iteration in 1..=ctx.max_iterations {
@@ -152,7 +168,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
             ));
         };
 
-        emit_log(app, LogEvent::info(
+        emit_log_and_file(app, log_writer, LogEvent::info(
             format!("找到 txt 文件：{}", txt_file.display()),
             None,
         ));
@@ -160,7 +176,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
         // 改名 txt → rar
         emit_progress(app, TaskStatus::RenamingTxtToRar, "正在将 txt 改名为 rar", 55, None);
         let rar_file = renamer::rename_txt_to_rar(&txt_file)?;
-        emit_log(app, LogEvent::success(
+        emit_log_and_file(app, log_writer, LogEvent::success(
             format!("已改名为：{}", rar_file.display()),
             None,
         ));
@@ -169,7 +185,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
         emit_progress(app, TaskStatus::CleaningExceptRar, "正在清理无关文件", 60, None);
         // TODO: 调用 7zz l 校验压缩包
         cleaner::clean_root_except(&ctx.root_dir, &[rar_file.clone()])?;
-        emit_log(app, LogEvent::success("已清理无关文件", None));
+        emit_log_and_file(app, log_writer, LogEvent::success("已清理无关文件", None));
 
         // 解压 rar
         super::cancel::check_cancelled()?;
@@ -180,7 +196,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
             &ctx.password_list,
         ).await?;
 
-        emit_log(app, LogEvent::success(
+        emit_log_and_file(app, log_writer, LogEvent::success(
             format!("RAR 解压成功，使用的密码序号：{}", password_index),
             None,
         ));
@@ -188,7 +204,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
         // 删除 rar 文件
         emit_progress(app, TaskStatus::DeletingRar, "正在删除 rar 文件", 80, None);
         cleaner::delete_file(&rar_file)?;
-        emit_log(app, LogEvent::success("已删除 rar 文件", None));
+        emit_log_and_file(app, log_writer, LogEvent::success("已删除 rar 文件", None));
     }
 
     // 重命名根目录
@@ -197,7 +213,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
         let current_name = ctx.root_dir.file_name().unwrap_or_default().to_string_lossy();
         if current_name != ctx.final_folder_name {
             let new_path = renamer::rename_root_folder(&ctx.root_dir, &ctx.final_folder_name)?;
-            emit_log(app, LogEvent::success(
+            emit_log_and_file(app, log_writer, LogEvent::success(
                 format!("已重命名为：{}", new_path.display()),
                 None,
             ));
@@ -205,7 +221,7 @@ async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), Ap
     }
 
     emit_progress(app, TaskStatus::Completed, "处理完成", 100, None);
-    emit_log(app, LogEvent::success("处理完成", None));
+    emit_log_and_file(app, log_writer, LogEvent::success("处理完成", None));
 
     Ok(())
 }
@@ -260,7 +276,8 @@ fn emit_progress(app: &AppHandle, status: TaskStatus, step_name: &str, progress:
     let _ = app.emit("task-progress", &event);
 }
 
-/// 发送日志事件
-fn emit_log(app: &AppHandle, event: LogEvent) {
+/// 发送日志事件并写入日志文件
+fn emit_log_and_file(app: &AppHandle, log_writer: &super::log_file::LogFileWriter, event: LogEvent) {
     let _ = app.emit("task-log", &event);
+    let _ = log_writer.write_log(&event);
 }
