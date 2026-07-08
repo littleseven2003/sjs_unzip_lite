@@ -6,12 +6,22 @@
  */
 import { ref, computed } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
+import { useTaskRunner } from "../composables/useTaskRunner";
+import type { TaskPreview, WarningItem } from "../types/task";
+
+const {
+  status,
+  loading,
+  errorMessage,
+  previewTask,
+  startTask: executeTask,
+  cancelTask,
+} = useTaskRunner();
 
 const folderPath = ref("");
 const finalFolderName = ref("");
-const loading = ref(false);
-const errorMessage = ref("");
+const preview = ref<TaskPreview | null>(null);
+const showWarnings = ref(false);
 
 /** 默认最终文件夹名 */
 const defaultFolderName = computed(() => {
@@ -28,10 +38,18 @@ const placeholderText = computed(() => {
   return "留空则使用所选文件夹名称";
 });
 
+/** 是否正在运行任务 */
+const isRunning = computed(() => {
+  return status.value !== "idle" && status.value !== "completed" && status.value !== "failed" && status.value !== "cancelled";
+});
+
 /** 选择文件夹 */
 async function selectFolder(): Promise<void> {
   try {
     errorMessage.value = "";
+    preview.value = null;
+    showWarnings.value = false;
+
     const selected = await open({
       directory: true,
       multiple: false,
@@ -48,49 +66,54 @@ async function selectFolder(): Promise<void> {
 }
 
 /** 预检查 */
-async function previewTask(): Promise<void> {
+async function handlePreview(): Promise<void> {
   if (!folderPath.value) return;
 
-  loading.value = true;
-  errorMessage.value = "";
+  const result = await previewTask({
+    root_dir: folderPath.value,
+    final_folder_name: finalFolderName.value || undefined,
+    continue_on_initial_extra_files: false,
+  });
 
-  try {
-    const result = await invoke("preview_task", {
-      input: {
-        root_dir: folderPath.value,
-        final_folder_name: finalFolderName.value || null,
-        continue_on_initial_extra_files: false,
-      },
-    });
-    // TODO: 处理预检查结果，展示给用户
-    console.log("preview result:", result);
-  } catch (err) {
-    errorMessage.value = `${err}`;
-  } finally {
-    loading.value = false;
+  if (result) {
+    preview.value = result;
+    showWarnings.value = result.warnings.length > 0;
   }
 }
 
 /** 开始处理 */
-async function startTask(): Promise<void> {
+async function handleStartTask(): Promise<void> {
   if (!folderPath.value) return;
 
-  loading.value = true;
-  errorMessage.value = "";
+  const success = await executeTask({
+    root_dir: folderPath.value,
+    final_folder_name: finalFolderName.value || undefined,
+    continue_on_initial_extra_files: true,
+  });
 
-  try {
-    await invoke("start_task", {
-      input: {
-        root_dir: folderPath.value,
-        final_folder_name: finalFolderName.value || null,
-        continue_on_initial_extra_files: false,
-      },
-    });
-  } catch (err) {
-    errorMessage.value = `${err}`;
-  } finally {
-    loading.value = false;
+  if (success) {
+    preview.value = null;
   }
+}
+
+/** 取消任务 */
+async function handleCancelTask(): Promise<void> {
+  await cancelTask();
+}
+
+/** 格式化文件大小 */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
+}
+
+/** 警告级别颜色 */
+function warningClass(code: string): string {
+  if (code === "NO_VOLUMES" || code === "MISSING_VOLUMES") return "warning-error";
+  if (code === "MULTIPLE_GROUPS" || code === "DUPLICATE_VOLUMES") return "warning-warn";
+  return "warning-info";
 }
 </script>
 
@@ -109,7 +132,9 @@ async function startTask(): Promise<void> {
           placeholder="请选择文件夹..."
           readonly
         />
-        <button class="btn btn-primary" @click="selectFolder">选择文件夹</button>
+        <button class="btn btn-primary" :disabled="isRunning" @click="selectFolder">
+          选择文件夹
+        </button>
       </div>
     </div>
 
@@ -122,9 +147,42 @@ async function startTask(): Promise<void> {
           type="text"
           class="input-field"
           :placeholder="placeholderText"
+          :disabled="isRunning"
         />
       </div>
       <p class="form-hint">处理过程中会移动、删除和重命名文件。建议提前备份原始文件夹。</p>
+    </div>
+
+    <!-- 预检查结果 -->
+    <div v-if="preview" class="preview-section">
+      <div class="preview-header">
+        <h3 class="preview-title">预检查结果</h3>
+        <span class="preview-status" :class="preview.can_start ? 'can-start' : 'cannot-start'">
+          {{ preview.can_start ? "可以开始" : "存在问题" }}
+        </span>
+      </div>
+
+      <!-- 分卷组信息 -->
+      <div v-if="preview.volume_groups.length > 0" class="preview-group">
+        <p class="preview-label">分卷组：</p>
+        <div v-for="group in preview.volume_groups" :key="group.id" class="volume-group">
+          <p class="group-name">{{ group.base_name }}</p>
+          <p class="group-info">{{ group.volume_count }} 个分卷，{{ formatSize(group.total_size) }}</p>
+        </div>
+      </div>
+
+      <!-- 警告信息 -->
+      <div v-if="preview.warnings.length > 0" class="warnings-list">
+        <div
+          v-for="(warning, index) in preview.warnings"
+          :key="index"
+          class="warning-item"
+          :class="warningClass(warning.code)"
+        >
+          <p class="warning-message">{{ warning.message }}</p>
+          <p v-if="warning.detail" class="warning-detail">{{ warning.detail }}</p>
+        </div>
+      </div>
     </div>
 
     <!-- 错误提示 -->
@@ -132,16 +190,25 @@ async function startTask(): Promise<void> {
 
     <!-- 操作按钮 -->
     <div class="form-actions">
-      <button class="btn btn-secondary" :disabled="!folderPath || loading" @click="previewTask">
-        预检查
-      </button>
-      <button
-        class="btn btn-primary"
-        :disabled="!folderPath || loading"
-        @click="startTask"
-      >
-        {{ loading ? "处理中..." : "开始处理" }}
-      </button>
+      <template v-if="isRunning">
+        <button class="btn btn-danger" @click="handleCancelTask">取消任务</button>
+      </template>
+      <template v-else>
+        <button
+          class="btn btn-secondary"
+          :disabled="!folderPath || loading"
+          @click="handlePreview"
+        >
+          {{ loading ? "检查中..." : "预检查" }}
+        </button>
+        <button
+          class="btn btn-primary"
+          :disabled="!folderPath || loading || (preview && !preview.can_start)"
+          @click="handleStartTask"
+        >
+          {{ loading ? "处理中..." : "开始处理" }}
+        </button>
+      </template>
     </div>
   </div>
 </template>
@@ -205,8 +272,117 @@ async function startTask(): Promise<void> {
   border-color: var(--color-primary);
 }
 
+.input-field:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .input-field::placeholder {
   color: var(--color-text-muted);
+}
+
+.preview-section {
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--color-card-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
+.preview-status {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.can-start {
+  background: rgba(32, 180, 134, 0.1);
+  color: var(--color-success);
+}
+
+.cannot-start {
+  background: rgba(240, 82, 82, 0.1);
+  color: var(--color-danger);
+}
+
+.preview-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preview-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.volume-group {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+}
+
+.group-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-main);
+}
+
+.group-info {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.warnings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.warning-item {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.warning-error {
+  background: rgba(240, 82, 82, 0.08);
+  color: var(--color-danger);
+}
+
+.warning-warn {
+  background: rgba(245, 165, 36, 0.08);
+  color: var(--color-warning);
+}
+
+.warning-info {
+  background: rgba(108, 140, 255, 0.08);
+  color: var(--color-primary);
+}
+
+.warning-message {
+  line-height: 1.4;
+}
+
+.warning-detail {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 4px;
 }
 
 .error-message {
@@ -259,5 +435,15 @@ async function startTask(): Promise<void> {
 
 .btn-secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.95);
+}
+
+.btn-danger {
+  background: rgba(240, 82, 82, 0.1);
+  color: var(--color-danger);
+  border: 1px solid rgba(240, 82, 82, 0.2);
+}
+
+.btn-danger:hover {
+  background: rgba(240, 82, 82, 0.2);
 }
 </style>
