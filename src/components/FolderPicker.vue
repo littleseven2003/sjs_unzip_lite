@@ -4,10 +4,12 @@
  * 职责：选择根文件夹、展示路径、推断默认最终文件夹名、校验危险目录
  * 基于 design.md 第 14.3 节
  */
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTaskRunner } from "../composables/useTaskRunner";
 import PasswordManager from "./PasswordManager.vue";
+import WarningDialog from "./WarningDialog.vue";
+import ResultDialog from "./ResultDialog.vue";
 import type { TaskPreview } from "../types/task";
 
 const {
@@ -22,8 +24,15 @@ const {
 const folderPath = ref("");
 const finalFolderName = ref("");
 const preview = ref<TaskPreview | null>(null);
-const showWarnings = ref(false);
 const showPasswordManager = ref(false);
+const showWarning = ref(false);
+const showResult = ref(false);
+const warningTitle = ref("");
+const warningMessage = ref("");
+const warningDetail = ref("");
+const warningType = ref<"confirm" | "select">("confirm");
+const warningOptions = ref<Array<{ label: string; value: string; danger?: boolean }>>([]);
+const pendingContinueWithExtraFiles = ref(false);
 
 /** 默认最终文件夹名 */
 const defaultFolderName = computed(() => {
@@ -50,7 +59,7 @@ async function selectFolder(): Promise<void> {
   try {
     errorMessage.value = "";
     preview.value = null;
-    showWarnings.value = false;
+    showWarning.value = false;
 
     const selected = await open({
       directory: true,
@@ -79,7 +88,33 @@ async function handlePreview(): Promise<void> {
 
   if (result) {
     preview.value = result;
-    showWarnings.value = result.warnings.length > 0;
+
+    // 检查是否有需要用户确认的警告
+    const hasExtraFiles = result.warnings.some((w) => w.code === "EXTRA_FILES");
+    const hasMultipleGroups = result.warnings.some((w) => w.code === "MULTIPLE_GROUPS");
+
+    if (hasExtraFiles) {
+      // 显示额外文件警告
+      warningTitle.value = "检测到额外文件";
+      warningMessage.value = "所选文件夹中检测到除 7z 分卷文件以外的其他文件或非空文件夹。继续处理可能会在后续清理步骤中删除这些内容。";
+      warningDetail.value = "建议先备份该文件夹。";
+      warningType.value = "confirm";
+      warningOptions.value = [];
+      pendingContinueWithExtraFiles.value = true;
+      showWarning.value = true;
+    } else if (hasMultipleGroups) {
+      // 显示多组分卷选择
+      const groups = result.volumeGroups;
+      warningTitle.value = "找到多组分卷文件";
+      warningMessage.value = "请选择需要处理的分卷组。";
+      warningDetail.value = "";
+      warningType.value = "select";
+      warningOptions.value = groups.map((g) => ({
+        label: `${g.baseName} (${g.volumeCount} 个分卷)`,
+        value: g.id,
+      }));
+      showWarning.value = true;
+    }
   }
 }
 
@@ -90,7 +125,7 @@ async function handleStartTask(): Promise<void> {
   const success = await executeTask({
     rootDir: folderPath.value,
     finalFolderName: finalFolderName.value || undefined,
-    continueOnInitialExtraFiles: true,
+    continueOnInitialExtraFiles: pendingContinueWithExtraFiles.value,
   });
 
   if (success) {
@@ -102,6 +137,38 @@ async function handleStartTask(): Promise<void> {
 async function handleCancelTask(): Promise<void> {
   await cancelTask();
 }
+
+/** 处理警告确认 */
+function handleWarningConfirm(): void {
+  showWarning.value = false;
+  if (pendingContinueWithExtraFiles.value) {
+    // 用户确认继续处理，重新预检查
+    pendingContinueWithExtraFiles.value = false;
+    handlePreview();
+  }
+}
+
+/** 处理警告取消 */
+function handleWarningCancel(): void {
+  showWarning.value = false;
+  pendingContinueWithExtraFiles.value = false;
+}
+
+/** 处理警告选择 */
+function handleWarningSelect(value: string): void {
+  showWarning.value = false;
+  // TODO: 处理用户选择的分卷组
+  console.log("Selected volume group:", value);
+}
+
+/** 监听任务状态变化，显示结果弹窗 */
+watch(status, (newStatus) => {
+  if (newStatus === "completed") {
+    showResult.value = true;
+  } else if (newStatus === "failed") {
+    showResult.value = true;
+  }
+});
 
 /** 格式化文件大小 */
 function formatSize(bytes: number): string {
@@ -220,6 +287,36 @@ function warningClass(code: string): string {
     <div v-if="showPasswordManager" class="modal-overlay" @click.self="showPasswordManager = false">
       <div class="modal-content">
         <PasswordManager @close="showPasswordManager = false" />
+      </div>
+    </div>
+
+    <!-- 警告弹窗 -->
+    <div v-if="showWarning" class="modal-overlay">
+      <div class="modal-content">
+        <WarningDialog
+          :title="warningTitle"
+          :message="warningMessage"
+          :detail="warningDetail"
+          :type="warningType"
+          :options="warningOptions"
+          @confirm="handleWarningConfirm"
+          @cancel="handleWarningCancel"
+          @select="handleWarningSelect"
+        />
+      </div>
+    </div>
+
+    <!-- 结果弹窗 -->
+    <div v-if="showResult" class="modal-overlay" @click.self="showResult = false">
+      <div class="modal-content">
+        <ResultDialog
+          :success="status === 'completed'"
+          :title="status === 'completed' ? '处理完成' : '处理失败'"
+          :message="status === 'completed' ? '文件已整理完成。' : errorMessage || '处理过程中发生错误。'"
+          :detail="status === 'failed' ? errorMessage : ''"
+          :folder-path="folderPath"
+          @close="showResult = false"
+        />
       </div>
     </div>
   </div>
