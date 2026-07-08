@@ -11,6 +11,7 @@ mod task;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_config,
             commands::load_passwords,

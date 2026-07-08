@@ -4,19 +4,93 @@
  * 职责：选择根文件夹、展示路径、推断默认最终文件夹名、校验危险目录
  * 基于 design.md 第 14.3 节
  */
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 
 const folderPath = ref("");
 const finalFolderName = ref("");
+const loading = ref(false);
+const errorMessage = ref("");
 
-/** 选择文件夹（调用 Tauri 对话框） */
+/** 默认最终文件夹名 */
+const defaultFolderName = computed(() => {
+  if (!folderPath.value) return "";
+  const parts = folderPath.value.replace(/\\/g, "/").split("/");
+  return parts[parts.length - 1] || "";
+});
+
+/** 显示的最终文件夹名提示 */
+const placeholderText = computed(() => {
+  if (defaultFolderName.value) {
+    return `留空则使用「${defaultFolderName.value}」`;
+  }
+  return "留空则使用所选文件夹名称";
+});
+
+/** 选择文件夹 */
 async function selectFolder(): Promise<void> {
-  // TODO: 调用 Tauri dialog API
+  try {
+    errorMessage.value = "";
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: "选择包含 7z 分卷文件的文件夹",
+    });
+
+    if (selected) {
+      folderPath.value = selected as string;
+      finalFolderName.value = "";
+    }
+  } catch (err) {
+    errorMessage.value = `选择文件夹失败：${err}`;
+  }
+}
+
+/** 预检查 */
+async function previewTask(): Promise<void> {
+  if (!folderPath.value) return;
+
+  loading.value = true;
+  errorMessage.value = "";
+
+  try {
+    const result = await invoke("preview_task", {
+      input: {
+        root_dir: folderPath.value,
+        final_folder_name: finalFolderName.value || null,
+        continue_on_initial_extra_files: false,
+      },
+    });
+    // TODO: 处理预检查结果，展示给用户
+    console.log("preview result:", result);
+  } catch (err) {
+    errorMessage.value = `${err}`;
+  } finally {
+    loading.value = false;
+  }
 }
 
 /** 开始处理 */
 async function startTask(): Promise<void> {
-  // TODO: 调用 preview_task → 确认 → start_task
+  if (!folderPath.value) return;
+
+  loading.value = true;
+  errorMessage.value = "";
+
+  try {
+    await invoke("start_task", {
+      input: {
+        root_dir: folderPath.value,
+        final_folder_name: finalFolderName.value || null,
+        continue_on_initial_extra_files: false,
+      },
+    });
+  } catch (err) {
+    errorMessage.value = `${err}`;
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 
@@ -47,21 +121,26 @@ async function startTask(): Promise<void> {
           v-model="finalFolderName"
           type="text"
           class="input-field"
-          placeholder="留空则使用所选文件夹名称"
+          :placeholder="placeholderText"
         />
       </div>
+      <p class="form-hint">处理过程中会移动、删除和重命名文件。建议提前备份原始文件夹。</p>
     </div>
+
+    <!-- 错误提示 -->
+    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
     <!-- 操作按钮 -->
     <div class="form-actions">
-      <button class="btn btn-secondary">管理密码表</button>
-      <button class="btn btn-secondary">预检查</button>
+      <button class="btn btn-secondary" :disabled="!folderPath || loading" @click="previewTask">
+        预检查
+      </button>
       <button
         class="btn btn-primary"
-        :disabled="!folderPath"
+        :disabled="!folderPath || loading"
         @click="startTask"
       >
-        开始处理
+        {{ loading ? "处理中..." : "开始处理" }}
       </button>
     </div>
   </div>
@@ -98,6 +177,12 @@ async function startTask(): Promise<void> {
   color: var(--color-text-main);
 }
 
+.form-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
 .input-group {
   display: flex;
   gap: 10px;
@@ -122,6 +207,14 @@ async function startTask(): Promise<void> {
 
 .input-field::placeholder {
   color: var(--color-text-muted);
+}
+
+.error-message {
+  font-size: 13px;
+  color: var(--color-danger);
+  padding: 8px 12px;
+  background: rgba(240, 82, 82, 0.08);
+  border-radius: 8px;
 }
 
 .form-actions {
@@ -164,7 +257,7 @@ async function startTask(): Promise<void> {
   border: 1px solid rgba(130, 150, 180, 0.22);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.95);
 }
 </style>
