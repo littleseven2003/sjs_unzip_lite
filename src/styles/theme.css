@@ -1,0 +1,16 @@
+:root {
+  --color-bg-start: #f7fbff;
+  --color-bg-end: #eef3ff;
+  --color-card: rgba(255, 255, 255, 0.82);
+  --color-card-border: rgba(130, 150, 180, 0.18);
+  --color-text-main: #172033;
+  --color-text-muted: #6b7280;
+  --color-primary: #6c8cff;
+  --color-primary-hover: #5c7df2;
+  --color-success: #20b486;
+  --color-warning: #f5a524;
+  --color-danger: #f05252;
+  --radius-card: 22px;
+  --radius-button: 14px;
+  --shadow-card: 0 18px 50px rgba(80, 100, 140, 0.14);
+}
