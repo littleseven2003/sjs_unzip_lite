@@ -13,6 +13,7 @@ use crate::task::safety;
 use crate::task::scanner;
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaskInput {
     pub root_dir: String,
     pub final_folder_name: Option<String>,
@@ -22,6 +23,7 @@ pub struct TaskInput {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TaskPreview {
     pub root_dir: String,
     pub default_final_folder_name: String,
@@ -33,6 +35,7 @@ pub struct TaskPreview {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VolumeGroupPreview {
     pub id: String,
     pub base_name: String,
@@ -45,6 +48,7 @@ pub struct VolumeGroupPreview {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VolumeFilePreview {
     pub path: String,
     pub index: u32,
@@ -52,6 +56,7 @@ pub struct VolumeFilePreview {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FilePreview {
     pub path: String,
     pub name: String,
@@ -60,6 +65,7 @@ pub struct FilePreview {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WarningItem {
     pub code: String,
     pub message: String,
@@ -75,14 +81,12 @@ pub async fn get_app_config() -> Result<serde_json::Value, AppError> {
 
 #[tauri::command]
 pub async fn load_passwords() -> Result<PasswordConfig, AppError> {
-    // TODO: 从应用数据目录加载密码配置
-    Ok(PasswordConfig::default())
+    PasswordConfig::load()
 }
 
 #[tauri::command]
 pub async fn save_passwords(config: PasswordConfig) -> Result<(), AppError> {
-    // TODO: 保存密码配置到应用数据目录
-    Ok(())
+    config.save()
 }
 
 #[tauri::command]
@@ -266,7 +270,7 @@ pub async fn start_task(input: TaskInput, app: AppHandle) -> Result<(), AppError
     safety::validate_root_dir(&root_dir)?;
 
     // 加载密码配置
-    let password_config = crate::config::PasswordConfig::default();
+    let password_config = PasswordConfig::load()?;
     let passwords = password_config.normalized_passwords();
 
     // 确定最终文件夹名
