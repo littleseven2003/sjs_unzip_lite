@@ -81,7 +81,7 @@ export function useTaskRunner() {
   function handleProgressEvent(event: ProgressEvent): void {
     status.value = event.status;
     progress.value = event.progress;
-    currentStep.value = event.step_name;
+    currentStep.value = event.stepName;
     detail.value = event.detail ?? "";
   }
 

@@ -7,7 +7,8 @@
 import { ref, computed } from "vue";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useTaskRunner } from "../composables/useTaskRunner";
-import type { TaskPreview, WarningItem } from "../types/task";
+import PasswordManager from "./PasswordManager.vue";
+import type { TaskPreview } from "../types/task";
 
 const {
   status,
@@ -22,6 +23,7 @@ const folderPath = ref("");
 const finalFolderName = ref("");
 const preview = ref<TaskPreview | null>(null);
 const showWarnings = ref(false);
+const showPasswordManager = ref(false);
 
 /** 默认最终文件夹名 */
 const defaultFolderName = computed(() => {
@@ -70,9 +72,9 @@ async function handlePreview(): Promise<void> {
   if (!folderPath.value) return;
 
   const result = await previewTask({
-    root_dir: folderPath.value,
-    final_folder_name: finalFolderName.value || undefined,
-    continue_on_initial_extra_files: false,
+    rootDir: folderPath.value,
+    finalFolderName: finalFolderName.value || undefined,
+    continueOnInitialExtraFiles: false,
   });
 
   if (result) {
@@ -86,9 +88,9 @@ async function handleStartTask(): Promise<void> {
   if (!folderPath.value) return;
 
   const success = await executeTask({
-    root_dir: folderPath.value,
-    final_folder_name: finalFolderName.value || undefined,
-    continue_on_initial_extra_files: true,
+    rootDir: folderPath.value,
+    finalFolderName: finalFolderName.value || undefined,
+    continueOnInitialExtraFiles: true,
   });
 
   if (success) {
@@ -157,17 +159,17 @@ function warningClass(code: string): string {
     <div v-if="preview" class="preview-section">
       <div class="preview-header">
         <h3 class="preview-title">预检查结果</h3>
-        <span class="preview-status" :class="preview.can_start ? 'can-start' : 'cannot-start'">
-          {{ preview.can_start ? "可以开始" : "存在问题" }}
+        <span class="preview-status" :class="preview.canStart ? 'can-start' : 'cannot-start'">
+          {{ preview.canStart ? "可以开始" : "存在问题" }}
         </span>
       </div>
 
       <!-- 分卷组信息 -->
-      <div v-if="preview.volume_groups.length > 0" class="preview-group">
+      <div v-if="preview.volumeGroups.length > 0" class="preview-group">
         <p class="preview-label">分卷组：</p>
-        <div v-for="group in preview.volume_groups" :key="group.id" class="volume-group">
-          <p class="group-name">{{ group.base_name }}</p>
-          <p class="group-info">{{ group.volume_count }} 个分卷，{{ formatSize(group.total_size) }}</p>
+        <div v-for="group in preview.volumeGroups" :key="group.id" class="volume-group">
+          <p class="group-name">{{ group.baseName }}</p>
+          <p class="group-info">{{ group.volumeCount }} 个分卷，{{ formatSize(group.totalSize) }}</p>
         </div>
       </div>
 
@@ -194,6 +196,9 @@ function warningClass(code: string): string {
         <button class="btn btn-danger" @click="handleCancelTask">取消任务</button>
       </template>
       <template v-else>
+        <button class="btn btn-secondary" @click="showPasswordManager = true">
+          管理密码表
+        </button>
         <button
           class="btn btn-secondary"
           :disabled="!folderPath || loading"
@@ -203,12 +208,19 @@ function warningClass(code: string): string {
         </button>
         <button
           class="btn btn-primary"
-          :disabled="!folderPath || loading || (preview && !preview.can_start)"
+          :disabled="!folderPath || loading || (preview !== null && !preview.canStart)"
           @click="handleStartTask"
         >
           {{ loading ? "处理中..." : "开始处理" }}
         </button>
       </template>
+    </div>
+
+    <!-- 密码管理弹窗 -->
+    <div v-if="showPasswordManager" class="modal-overlay" @click.self="showPasswordManager = false">
+      <div class="modal-content">
+        <PasswordManager @close="showPasswordManager = false" />
+      </div>
     </div>
   </div>
 </template>
@@ -445,5 +457,27 @@ function warningClass(code: string): string {
 
 .btn-danger:hover {
   background: rgba(240, 82, 82, 0.2);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--color-card);
+  border-radius: var(--radius-card);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  max-height: 80vh;
+  overflow-y: auto;
 }
 </style>
