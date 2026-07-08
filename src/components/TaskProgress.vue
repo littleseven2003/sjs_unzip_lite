@@ -4,13 +4,9 @@
  * 职责：展示当前任务状态、进度条、当前步骤、当前文件、耗时
  * 基于 design.md 第 14.4 节
  */
-import { ref } from "vue";
-import type { TaskStatus } from "../types/task";
+import { useTaskRunner } from "../composables/useTaskRunner";
 
-const status = ref<TaskStatus>("idle");
-const stepName = ref("");
-const progress = ref(0);
-const detail = ref("");
+const { status, progress, currentStep, detail } = useTaskRunner();
 </script>
 
 <template>
@@ -23,11 +19,11 @@ const detail = ref("");
       </template>
 
       <template v-else-if="status === 'completed'">
-        <p class="status-completed">处理完成</p>
+        <p class="status-completed">✓ 处理完成</p>
       </template>
 
       <template v-else-if="status === 'failed'">
-        <p class="status-failed">处理失败</p>
+        <p class="status-failed">✗ 处理失败</p>
       </template>
 
       <template v-else-if="status === 'cancelled'">
@@ -37,7 +33,7 @@ const detail = ref("");
       <template v-else>
         <div class="progress-info">
           <div class="progress-header">
-            <span class="step-name">{{ stepName }}</span>
+            <span class="step-name">{{ currentStep }}</span>
             <span class="progress-percent">{{ progress }}%</span>
           </div>
           <div class="progress-bar">
