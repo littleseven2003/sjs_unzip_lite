@@ -14,6 +14,27 @@ use super::{cleaner, extractor, mover, renamer, safety, scanner};
 
 /// 执行任务主流程
 pub async fn run_task(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppError> {
+    // 重置取消标记
+    super::cancel::reset();
+
+    // 执行任务，处理取消情况
+    match run_task_inner(ctx, app).await {
+        Ok(()) => Ok(()),
+        Err(AppError::Cancelled) => {
+            emit_progress(app, TaskStatus::Cancelled, "任务已取消", 0, None);
+            emit_log(app, LogEvent::warning("任务已取消", None));
+            Err(AppError::Cancelled)
+        }
+        Err(e) => {
+            emit_progress(app, TaskStatus::Failed, "处理失败", 0, Some(e.to_string()));
+            emit_log(app, LogEvent::error(format!("处理失败：{}", e), None));
+            Err(e)
+        }
+    }
+}
+
+/// 任务主流程内部实现
+async fn run_task_inner(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppError> {
     // 校验根目录
     safety::validate_root_dir(&ctx.root_dir)?;
 
@@ -60,6 +81,7 @@ pub async fn run_task(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppE
     ));
 
     // 移动分卷到根目录
+    super::cancel::check_cancelled()?;
     emit_progress(app, TaskStatus::MovingVolumes, "正在归集分卷文件", 15, None);
     mover::move_volumes_to_root(&volume_group, &ctx.root_dir)?;
     emit_log(app, LogEvent::success("分卷文件已移动到根目录", None));
@@ -72,6 +94,7 @@ pub async fn run_task(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppE
     }
 
     // 解压 7z 分卷
+    super::cancel::check_cancelled()?;
     emit_progress(app, TaskStatus::Extracting7z, "正在解压 7z 分卷压缩包", 35, None);
     let first_volume = ctx.root_dir.join(format!("{}.7z.001", volume_group.base_name));
     let first_volume = if first_volume.exists() {
@@ -108,6 +131,7 @@ pub async fn run_task(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppE
 
     // txt → rar 循环
     for iteration in 1..=ctx.max_iterations {
+        super::cancel::check_cancelled()?;
         ctx.current_iteration = iteration;
 
         emit_progress(app, TaskStatus::FindingTxt, "正在查找 txt 文件", 50, None);
@@ -149,6 +173,7 @@ pub async fn run_task(ctx: &mut TaskContext, app: &AppHandle) -> Result<(), AppE
         emit_log(app, LogEvent::success("已清理无关文件", None));
 
         // 解压 rar
+        super::cancel::check_cancelled()?;
         emit_progress(app, TaskStatus::ExtractingRar, "正在解压 rar 文件", 70, None);
         let password_index = extractor::extract_with_passwords(
             &rar_file,

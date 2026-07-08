@@ -286,9 +286,14 @@ pub async fn start_task(input: TaskInput, app: AppHandle) -> Result<(), AppError
 }
 
 #[tauri::command]
-pub async fn cancel_task() -> Result<(), AppError> {
-    // TODO: 实现任务取消逻辑
-    Err(AppError::Unknown("未实现".to_string()))
+pub async fn cancel_task(app: AppHandle) -> Result<(), AppError> {
+    crate::task::cancel::request_cancel();
+
+    // 发送取消事件到前端
+    use tauri::Emitter;
+    let _ = app.emit("task-log", crate::events::LogEvent::warning("用户请求取消任务", None));
+
+    Ok(())
 }
 
 #[tauri::command]
