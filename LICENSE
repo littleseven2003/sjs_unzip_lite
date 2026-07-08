@@ -19,3 +19,24 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+## Third-Party Components
+
+This software includes the following third-party components:
+
+### 7-Zip
+
+This application bundles 7-Zip command-line binaries as an embedded extraction tool.
+
+- Website: https://www.7-zip.org/
+- License: GNU Lesser General Public License (LGPL)
+- Usage: Used solely for archive extraction (7z, rar). No RAR compression capability is provided.
+
+The unRAR source code included in 7-Zip is subject to the following restriction:
+- The unRAR sources cannot be used to re-create the RAR compression algorithm.
+
+For full license details, see: https://www.7-zip.org/license.txt
+
+For third-party notices specific to this project, see: docs/THIRD_PARTY_NOTICES.md
