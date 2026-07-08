@@ -8,6 +8,7 @@ mod config;
 mod error;
 mod events;
 mod task;
+mod utils;
 
 fn main() {
     tauri::Builder::default()

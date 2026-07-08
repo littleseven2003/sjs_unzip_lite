@@ -261,8 +261,28 @@ pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
 
 #[tauri::command]
 pub async fn start_task(input: TaskInput, app: AppHandle) -> Result<(), AppError> {
-    // TODO: 实现任务启动逻辑
-    Err(AppError::Unknown("未实现".to_string()))
+    let root_dir = PathBuf::from(&input.root_dir);
+
+    // 安全校验
+    safety::validate_root_dir(&root_dir)?;
+
+    // 加载密码配置
+    let password_config = crate::config::PasswordConfig::default();
+    let passwords = password_config.normalized_passwords();
+
+    // 确定最终文件夹名
+    let final_folder_name = input.final_folder_name.clone().unwrap_or_else(|| {
+        root_dir
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default()
+    });
+
+    // 创建任务上下文
+    let mut ctx = crate::task::context::TaskContext::new(root_dir, final_folder_name, passwords);
+
+    // 执行任务
+    crate::task::runner::run_task(&mut ctx, &app).await
 }
 
 #[tauri::command]

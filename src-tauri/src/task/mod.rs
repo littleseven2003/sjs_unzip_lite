@@ -4,5 +4,6 @@ pub mod extractor;
 pub mod mover;
 pub mod password;
 pub mod renamer;
+pub mod runner;
 pub mod safety;
 pub mod scanner;
