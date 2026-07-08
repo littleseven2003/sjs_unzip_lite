@@ -301,6 +301,39 @@ pub async fn cancel_task(app: AppHandle) -> Result<(), AppError> {
 
 #[tauri::command]
 pub async fn open_log_folder() -> Result<(), AppError> {
-    // TODO: 打开日志文件夹
-    Err(AppError::Unknown("未实现".to_string()))
+    let log_dir = dirs::config_dir()
+        .ok_or_else(|| AppError::Unknown("无法获取配置目录".to_string()))?
+        .join("sjs-unzip-tool")
+        .join("logs");
+
+    // 确保目录存在
+    std::fs::create_dir_all(&log_dir)
+        .map_err(|e| AppError::Unknown(format!("创建日志目录失败：{}", e)))?;
+
+    // 打开目录
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&log_dir)
+            .spawn()
+            .map_err(|e| AppError::Unknown(format!("打开目录失败：{}", e)))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&log_dir)
+            .spawn()
+            .map_err(|e| AppError::Unknown(format!("打开目录失败：{}", e)))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&log_dir)
+            .spawn()
+            .map_err(|e| AppError::Unknown(format!("打开目录失败：{}", e)))?;
+    }
+
+    Ok(())
 }
