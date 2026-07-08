@@ -3,7 +3,6 @@
  * 基于 design.md 第 18 节（任务主流程伪代码）
  */
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter};
 

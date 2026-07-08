@@ -24,14 +24,14 @@ pub fn move_volumes_to_root(volume_group: &VolumeGroup, target_dir: &Path) -> Re
             )));
         }
 
-        std::fs::rename(&file.path, &dest).map_err(|e| {
+        std::fs::rename(&file.path, &dest).or_else(|e| {
             // 跨磁盘时 rename 会失败，尝试 copy + delete
             if e.kind() == std::io::ErrorKind::CrossesDevices {
                 std::fs::copy(&file.path, &dest)
                     .and_then(|_| std::fs::remove_file(&file.path))
                     .map_err(|e2| AppError::MoveFailed(e2.to_string()))
             } else {
-                AppError::MoveFailed(e.to_string())
+                Err(AppError::MoveFailed(e.to_string()))
             }
         })?;
     }

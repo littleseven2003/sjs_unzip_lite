@@ -3,7 +3,6 @@
  * 基于 design.md 第 19 节
  */
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 /// 全局取消标记
 static CANCELLED: AtomicBool = AtomicBool::new(false);

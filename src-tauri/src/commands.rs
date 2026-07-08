@@ -9,7 +9,6 @@ use tauri::AppHandle;
 
 use crate::config::PasswordConfig;
 use crate::error::AppError;
-use crate::task::context::TaskContext;
 use crate::task::safety;
 use crate::task::scanner;
 
