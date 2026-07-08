@@ -30,9 +30,9 @@ package-lock.json
 yarn.lock
 
 # Tauri
-src-tauri/binaries/*.exe
-src-tauri/binaries/7zz-*
-!src-tauri/binaries/.gitkeep
+# 7-Zip sidecar binaries (committed to repo for bundling)
+# src-tauri/binaries/*.exe
+# src-tauri/binaries/7zz-*
 
 # Internal docs (not for remote)
 AGENTS.md
