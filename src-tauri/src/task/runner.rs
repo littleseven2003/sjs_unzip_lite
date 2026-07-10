@@ -108,6 +108,49 @@ async fn run_task_inner(
         emit_log_and_file(app, log_writer, LogEvent::info(format!("已清理 {} 个空文件夹", removed.len()), None));
     }
 
+    // 清理额外文件（在解压前清理，避免解压后同名文件被误删）
+    let volume_file_names: Vec<String> = volume_group.files.iter()
+        .filter_map(|f| f.path.file_name().map(|n| n.to_string_lossy().to_string()))
+        .collect();
+
+    let extra_files: Vec<PathBuf> = std::fs::read_dir(&ctx.root_dir)
+        .map_err(|e| AppError::Unknown(e.to_string()))?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| {
+            if !path.is_file() {
+                return false;
+            }
+            let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+            // 跳过分卷文件
+            if volume_file_names.contains(&file_name) {
+                return false;
+            }
+            // 跳过隐藏文件
+            if file_name.starts_with(".") {
+                return false;
+            }
+            true
+        })
+        .collect();
+
+    if !extra_files.is_empty() {
+        emit_progress(app, TaskStatus::CleaningFolders, "正在清理额外文件", 30, None);
+        let mut cleaned_count = 0;
+        for file in &extra_files {
+            match cleaner::delete_file(file) {
+                Ok(()) => cleaned_count += 1,
+                Err(e) => {
+                    emit_log_and_file(app, log_writer, LogEvent::warning(
+                        format!("清理文件失败：{} - {}", file.display(), e),
+                        None,
+                    ));
+                }
+            }
+        }
+        emit_log_and_file(app, log_writer, LogEvent::info(format!("已清理 {} 个额外文件", cleaned_count), None));
+    }
+
     // 解压 7z 分卷
     super::cancel::check_cancelled()?;
     emit_progress(app, TaskStatus::Extracting7z, "正在解压 7z 分卷压缩包", 35, None);
@@ -124,6 +167,7 @@ async fn run_task_inner(
     }
 
     let password_index = extractor::extract_with_passwords(
+        app,
         &first_volume,
         &ctx.root_dir,
         &ctx.password_list,
@@ -135,14 +179,15 @@ async fn run_task_inner(
     ));
 
     // 删除分卷文件
-    emit_progress(app, TaskStatus::DeletingVolumes, "正在删除原始分卷文件", 45, None);
+    emit_progress(app, TaskStatus::DeletingVolumes, "正在删除分卷文件", 45, None);
     for file in &volume_group.files {
         let path = ctx.root_dir.join(file.path.file_name().unwrap_or_default());
         if path.exists() {
             cleaner::delete_file(&path)?;
         }
     }
-    emit_log_and_file(app, log_writer, LogEvent::success("已删除原始分卷文件", None));
+
+    emit_log_and_file(app, log_writer, LogEvent::success("已删除分卷文件", None));
 
     // txt → rar 循环
     for iteration in 1..=ctx.max_iterations {
@@ -182,8 +227,21 @@ async fn run_task_inner(
         ));
 
         // 校验压缩包有效性
-        emit_progress(app, TaskStatus::CleaningExceptRar, "正在清理无关文件", 60, None);
-        // TODO: 调用 7zz l 校验压缩包
+        emit_progress(app, TaskStatus::CleaningExceptRar, "正在校验压缩包", 60, None);
+        let is_valid = extractor::validate_archive(app, &rar_file).await?;
+        if !is_valid {
+            // 不是有效压缩包，改回原名
+            let restored_path = renamer::rename_rar_back_to_txt(&rar_file)?;
+            emit_log_and_file(app, log_writer, LogEvent::warning(
+                format!("文件不是有效的压缩包，已恢复原名：{}", restored_path.display()),
+                None,
+            ));
+            // 停止处理
+            break;
+        }
+        emit_log_and_file(app, log_writer, LogEvent::success("压缩包校验通过", None));
+
+        // 清理无关文件
         cleaner::clean_root_except(&ctx.root_dir, &[rar_file.clone()])?;
         emit_log_and_file(app, log_writer, LogEvent::success("已清理无关文件", None));
 
@@ -191,6 +249,7 @@ async fn run_task_inner(
         super::cancel::check_cancelled()?;
         emit_progress(app, TaskStatus::ExtractingRar, "正在解压 rar 文件", 70, None);
         let password_index = extractor::extract_with_passwords(
+            app,
             &rar_file,
             &ctx.root_dir,
             &ctx.password_list,
