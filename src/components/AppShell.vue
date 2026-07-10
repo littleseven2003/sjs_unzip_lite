@@ -18,10 +18,8 @@ const { currentTheme } = useTheme();
     <!-- 顶部标题区 -->
     <header class="app-header">
       <div class="header-content">
-        <div class="header-left">
-          <h1 class="app-title">sjs-unzip-tool</h1>
-          <p class="app-subtitle">自动整理 7z 分卷压缩包，并连续处理伪装为 txt 的 rar 文件</p>
-        </div>
+        <h1 class="app-title">sjs-unzip-tool</h1>
+        <p class="app-subtitle">自动整理 7z 分卷压缩包，并连续处理伪装为 txt 的 rar 文件</p>
       </div>
     </header>
 
@@ -33,15 +31,18 @@ const { currentTheme } = useTheme();
           <FolderPicker />
         </section>
 
-        <!-- 任务状态卡片 -->
-        <section class="card card-task">
-          <TaskProgress />
-        </section>
+        <!-- 底部区域：任务状态 + 日志 -->
+        <div class="bottom-area">
+          <!-- 任务状态卡片 -->
+          <section class="card card-task">
+            <TaskProgress />
+          </section>
 
-        <!-- 日志区 -->
-        <section class="card card-log">
-          <LogPanel />
-        </section>
+          <!-- 日志区 -->
+          <section class="card card-log">
+            <LogPanel />
+          </section>
+        </div>
       </div>
     </main>
   </div>
@@ -59,41 +60,40 @@ const { currentTheme } = useTheme();
 }
 
 .app-header {
-  padding: 24px 32px 16px;
+  padding: 16px 24px 8px;
+  flex-shrink: 0;
 }
 
 .header-content {
-  max-width: 720px;
+  max-width: 800px;
   margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .app-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--color-text-main);
   letter-spacing: -0.02em;
 }
 
 .app-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .app-main {
   flex: 1;
-  padding: 0 32px 32px;
+  padding: 0 24px 16px;
 }
 
 .main-content {
-  max-width: 720px;
+  max-width: 800px;
   margin: 0 auto;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .card {
@@ -102,6 +102,29 @@ const { currentTheme } = useTheme();
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(16px);
-  padding: 24px;
+  padding: 16px;
+}
+
+.card-operation {
+  flex-shrink: 0;
+}
+
+.bottom-area {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
+
+.card-task {
+  flex: 0 0 auto;
+  width: 240px;
+}
+
+.card-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>

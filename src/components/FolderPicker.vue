@@ -118,6 +118,21 @@ async function handlePreview(): Promise<void> {
   }
 }
 
+/** 预检查（跳过警告） */
+async function handlePreviewSkipWarning(): Promise<void> {
+  if (!folderPath.value) return;
+
+  const result = await previewTask({
+    rootDir: folderPath.value,
+    finalFolderName: finalFolderName.value || undefined,
+    continueOnInitialExtraFiles: true,
+  });
+
+  if (result) {
+    preview.value = result;
+  }
+}
+
 /** 开始处理 */
 async function handleStartTask(): Promise<void> {
   if (!folderPath.value) return;
@@ -142,9 +157,9 @@ async function handleCancelTask(): Promise<void> {
 function handleWarningConfirm(): void {
   showWarning.value = false;
   if (pendingContinueWithExtraFiles.value) {
-    // 用户确认继续处理，重新预检查
+    // 用户确认继续处理，跳过警告重新预检查
     pendingContinueWithExtraFiles.value = false;
-    handlePreview();
+    handlePreviewSkipWarning();
   }
 }
 
@@ -284,41 +299,47 @@ function warningClass(code: string): string {
     </div>
 
     <!-- 密码管理弹窗 -->
-    <div v-if="showPasswordManager" class="modal-overlay" @click.self="showPasswordManager = false">
-      <div class="modal-content">
-        <PasswordManager @close="showPasswordManager = false" />
+    <Teleport to="body">
+      <div v-if="showPasswordManager" class="modal-overlay" @click.self="showPasswordManager = false">
+        <div class="modal-content">
+          <PasswordManager @close="showPasswordManager = false" />
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 警告弹窗 -->
-    <div v-if="showWarning" class="modal-overlay">
-      <div class="modal-content">
-        <WarningDialog
-          :title="warningTitle"
-          :message="warningMessage"
-          :detail="warningDetail"
-          :type="warningType"
-          :options="warningOptions"
-          @confirm="handleWarningConfirm"
-          @cancel="handleWarningCancel"
-          @select="handleWarningSelect"
-        />
+    <Teleport to="body">
+      <div v-if="showWarning" class="modal-overlay">
+        <div class="modal-content">
+          <WarningDialog
+            :title="warningTitle"
+            :message="warningMessage"
+            :detail="warningDetail"
+            :type="warningType"
+            :options="warningOptions"
+            @confirm="handleWarningConfirm"
+            @cancel="handleWarningCancel"
+            @select="handleWarningSelect"
+          />
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- 结果弹窗 -->
-    <div v-if="showResult" class="modal-overlay" @click.self="showResult = false">
-      <div class="modal-content">
-        <ResultDialog
-          :success="status === 'completed'"
-          :title="status === 'completed' ? '处理完成' : '处理失败'"
-          :message="status === 'completed' ? '文件已整理完成。' : errorMessage || '处理过程中发生错误。'"
-          :detail="status === 'failed' ? errorMessage : ''"
-          :folder-path="folderPath"
-          @close="showResult = false"
-        />
+    <Teleport to="body">
+      <div v-if="showResult" class="modal-overlay" @click.self="showResult = false">
+        <div class="modal-content">
+          <ResultDialog
+            :success="status === 'completed'"
+            :title="status === 'completed' ? '处理完成' : '处理失败'"
+            :message="status === 'completed' ? '文件已整理完成。' : errorMessage || '处理过程中发生错误。'"
+            :detail="status === 'failed' ? errorMessage : ''"
+            :folder-path="folderPath"
+            @close="showResult = false"
+          />
+        </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -326,52 +347,52 @@ function warningClass(code: string): string {
 .folder-picker {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .section-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-main);
 }
 
 .section-desc {
-  font-size: 13px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.form-row {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-main);
-}
-
-.form-hint {
   font-size: 12px;
   color: var(--color-text-muted);
   line-height: 1.4;
 }
 
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-main);
+}
+
+.form-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
 .input-group {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .input-field {
   flex: 1;
-  height: 40px;
-  padding: 0 14px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-button);
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
+  font-size: 13px;
   color: var(--color-text-main);
   outline: none;
   transition: border-color 0.2s;
@@ -393,11 +414,11 @@ function warningClass(code: string): string {
 .preview-section {
   background: rgba(255, 255, 255, 0.4);
   border: 1px solid var(--color-card-border);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 8px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .preview-header {
@@ -407,15 +428,15 @@ function warningClass(code: string): string {
 }
 
 .preview-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-text-main);
 }
 
 .preview-status {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 6px;
 }
 
@@ -504,17 +525,17 @@ function warningClass(code: string): string {
 
 .form-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .btn {
-  height: 40px;
-  padding: 0 20px;
+  height: 32px;
+  padding: 0 14px;
   border: none;
-  border-radius: var(--radius-button);
-  font-size: 14px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -529,7 +550,7 @@ function warningClass(code: string): string {
 .btn-primary {
   background: linear-gradient(135deg, #6c8cff, #7c6cff);
   color: white;
-  box-shadow: 0 10px 24px rgba(108, 140, 255, 0.28);
+  box-shadow: 0 6px 16px rgba(108, 140, 255, 0.28);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -556,7 +577,7 @@ function warningClass(code: string): string {
   background: rgba(240, 82, 82, 0.2);
 }
 
-.modal-overlay {
+:global(.modal-overlay) {
   position: fixed;
   top: 0;
   left: 0;
@@ -570,11 +591,13 @@ function warningClass(code: string): string {
   backdrop-filter: blur(4px);
 }
 
-.modal-content {
+:global(.modal-content) {
   background: var(--color-card);
   border-radius: var(--radius-card);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   max-height: 80vh;
   overflow-y: auto;
+  min-width: 400px;
+  max-width: 90vw;
 }
 </style>

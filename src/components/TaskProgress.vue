@@ -19,15 +19,15 @@ const { status, progress, currentStep, detail } = useTaskRunner();
       </template>
 
       <template v-else-if="status === 'completed'">
-        <p class="status-completed">✓ 处理完成</p>
+        <p class="status-completed">✓ 完成</p>
       </template>
 
       <template v-else-if="status === 'failed'">
-        <p class="status-failed">✗ 处理失败</p>
+        <p class="status-failed">✗ 失败</p>
       </template>
 
       <template v-else-if="status === 'cancelled'">
-        <p class="status-cancelled">任务已取消</p>
+        <p class="status-cancelled">已取消</p>
       </template>
 
       <template v-else>
@@ -50,41 +50,41 @@ const { status, progress, currentStep, detail } = useTaskRunner();
 .task-progress {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .section-title {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--color-text-main);
 }
 
 .status-area {
-  min-height: 48px;
+  min-height: 32px;
   display: flex;
   align-items: center;
 }
 
 .status-idle {
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .status-completed {
   color: var(--color-success);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
 .status-failed {
   color: var(--color-danger);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
 .status-cancelled {
   color: var(--color-warning);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -92,7 +92,7 @@ const { status, progress, currentStep, detail } = useTaskRunner();
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .progress-header {
@@ -102,33 +102,33 @@ const { status, progress, currentStep, detail } = useTaskRunner();
 }
 
 .step-name {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 500;
   color: var(--color-text-main);
 }
 
 .progress-percent {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--color-text-muted);
 }
 
 .progress-bar {
   width: 100%;
-  height: 8px;
+  height: 6px;
   background: rgba(130, 150, 180, 0.12);
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #6c8cff, #7c6cff);
-  border-radius: 4px;
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
 .progress-detail {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--color-text-muted);
 }
 </style>
