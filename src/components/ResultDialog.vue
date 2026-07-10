@@ -5,6 +5,7 @@
  * 基于 design.md 第 14.6 节
  */
 import { ref } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface ResultDialogProps {
   success: boolean;
@@ -29,8 +30,7 @@ const copied = ref(false);
 async function handleOpenFolder(): Promise<void> {
   if (props.folderPath) {
     try {
-      // TODO: 调用 Tauri 命令打开文件夹
-      // await invoke("open_folder", { path: props.folderPath });
+      await invoke("open_folder", { path: props.folderPath });
     } catch (err) {
       console.error("打开文件夹失败:", err);
     }
