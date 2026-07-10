@@ -16,6 +16,11 @@ pub fn move_volumes_to_root(volume_group: &VolumeGroup, target_dir: &Path) -> Re
             .ok_or_else(|| AppError::MoveFailed("无法获取文件名".to_string()))?;
         let dest = target_dir.join(file_name);
 
+        // 如果源文件和目标路径相同，跳过
+        if file.path == dest {
+            continue;
+        }
+
         // 检查目标是否已存在
         if dest.exists() {
             return Err(AppError::MoveFailed(format!(
