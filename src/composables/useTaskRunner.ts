@@ -8,6 +8,29 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { TaskStatus, TaskInput, TaskPreview, ProgressEvent } from "../types/task";
 
+/** 格式化错误信息 */
+function formatError(err: unknown): string {
+  if (typeof err === "string") {
+    return err;
+  }
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === "object" && err !== null) {
+    // Tauri 错误对象
+    if ("message" in err && typeof (err as any).message === "string") {
+      return (err as any).message;
+    }
+    // 尝试 JSON 序列化
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
+
 export function useTaskRunner() {
   const status = ref<TaskStatus>("idle");
   const progress = ref(0);
@@ -42,7 +65,7 @@ export function useTaskRunner() {
       const result = await invoke<TaskPreview>("preview_task", { input });
       return result;
     } catch (err) {
-      errorMessage.value = `${err}`;
+      errorMessage.value = formatError(err);
       return null;
     } finally {
       loading.value = false;
@@ -60,7 +83,7 @@ export function useTaskRunner() {
       await invoke("start_task", { input });
       return true;
     } catch (err) {
-      errorMessage.value = `${err}`;
+      errorMessage.value = formatError(err);
       status.value = "failed";
       return false;
     } finally {
@@ -73,7 +96,7 @@ export function useTaskRunner() {
     try {
       await invoke("cancel_task");
     } catch (err) {
-      errorMessage.value = `${err}`;
+      errorMessage.value = formatError(err);
     }
   }
 
