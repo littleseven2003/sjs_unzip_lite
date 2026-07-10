@@ -300,6 +300,41 @@ pub async fn cancel_task(app: AppHandle) -> Result<(), AppError> {
 }
 
 #[tauri::command]
+pub async fn open_folder(path: String) -> Result<(), AppError> {
+    let folder_path = std::path::PathBuf::from(&path);
+
+    if !folder_path.exists() {
+        return Err(AppError::Unknown(format!("目录不存在：{}", path)));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&folder_path)
+            .spawn()
+            .map_err(|e| AppError::Unknown(format!("打开目录失败：{}", e)))?;
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&folder_path)
+            .spawn()
+            .map_err(|e| AppError::Unknown(format!("打开目录失败：{}", e)))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&folder_path)
+            .spawn()
+            .map_err(|e| AppError::Unknown(format!("打开目录失败：{}", e)))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn open_log_folder() -> Result<(), AppError> {
     let log_dir = dirs::config_dir()
         .ok_or_else(|| AppError::Unknown("无法获取配置目录".to_string()))?

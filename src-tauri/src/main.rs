@@ -18,6 +18,7 @@ fn main() {
             commands::preview_task,
             commands::start_task,
             commands::cancel_task,
+            commands::open_folder,
             commands::open_log_folder,
         ])
         .run(tauri::generate_context!())
