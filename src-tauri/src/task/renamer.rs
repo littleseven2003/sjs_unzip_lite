@@ -23,6 +23,23 @@ pub fn rename_txt_to_rar(txt_path: &Path) -> Result<PathBuf, AppError> {
     Ok(new_path)
 }
 
+/// 将 rar 文件改回 txt（校验失败时使用）
+pub fn rename_rar_back_to_txt(rar_path: &Path) -> Result<PathBuf, AppError> {
+    let new_name = rar_path
+        .file_stem()
+        .ok_or_else(|| AppError::RenameFailed("无法获取文件名".to_string()))?
+        .to_string_lossy()
+        .to_string()
+        + ".txt";
+
+    let new_path = rar_path.parent().unwrap_or(Path::new(".")).join(new_name);
+
+    std::fs::rename(rar_path, &new_path)
+        .map_err(|e| AppError::RenameFailed(e.to_string()))?;
+
+    Ok(new_path)
+}
+
 /// 重命名根目录
 pub fn rename_root_folder(
     root_dir: &Path,
