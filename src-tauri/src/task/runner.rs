@@ -53,12 +53,14 @@ async fn run_task_inner(
     // 校验根目录
     safety::validate_root_dir(&ctx.root_dir)?;
 
-    // 校验最终文件夹名
-    if !ctx.final_folder_name.is_empty() {
-        let err = crate::utils::filename::validate_folder_name(&ctx.final_folder_name);
-        if let Some(msg) = err {
-            return Err(AppError::InvalidRootDir(msg));
+    // 校验最终文件夹名（去除首尾空白后校验；空则使用默认名，跳过校验）
+    let trimmed_final_name = ctx.final_folder_name.trim();
+    if !trimmed_final_name.is_empty() {
+        if let Some(msg) = crate::utils::filename::validate_folder_name(trimmed_final_name) {
+            return Err(AppError::InvalidFolderName(msg));
         }
+        // 校验通过后写入 trim 后的名称，避免后续重命名时残留空白
+        ctx.final_folder_name = trimmed_final_name.to_string();
     }
 
     emit_progress(app, TaskStatus::Scanning, "正在扫描文件夹", 5, None);
