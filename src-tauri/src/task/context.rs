@@ -24,10 +24,8 @@ pub struct TaskContext {
     pub final_folder_name: String,
     pub password_list: Vec<String>,
     pub selected_volume_group: Option<VolumeGroup>,
-    pub current_archive: Option<PathBuf>,
     pub current_iteration: u32,
     pub max_iterations: u32,
-    pub dry_run: bool,
 }
 
 impl TaskContext {
@@ -37,10 +35,8 @@ impl TaskContext {
             final_folder_name,
             password_list,
             selected_volume_group: None,
-            current_archive: None,
             current_iteration: 0,
             max_iterations: 20,
-            dry_run: false,
         }
     }
 }

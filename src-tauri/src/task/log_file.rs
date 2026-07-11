@@ -16,7 +16,6 @@ use crate::events::LogEvent;
 /// 日志文件写入器
 pub struct LogFileWriter {
     file: Mutex<std::fs::File>,
-    path: PathBuf,
 }
 
 impl LogFileWriter {
@@ -42,7 +41,6 @@ impl LogFileWriter {
 
         Ok(Self {
             file: Mutex::new(file),
-            path,
         })
     }
 
@@ -51,11 +49,6 @@ impl LogFileWriter {
         let config_dir = dirs::config_dir()
             .ok_or_else(|| AppError::Unknown("无法获取配置目录".to_string()))?;
         Ok(config_dir.join("sjs-unzip-tool").join("logs"))
-    }
-
-    /// 获取日志文件路径
-    pub fn path(&self) -> &PathBuf {
-        &self.path
     }
 
     /// 写入头部信息

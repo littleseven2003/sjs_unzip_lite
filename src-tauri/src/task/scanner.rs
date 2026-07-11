@@ -15,7 +15,6 @@ pub struct ScanResult {
     pub volume_groups: Vec<VolumeGroup>,
     pub extra_files: Vec<PathBuf>,
     pub extra_dirs: Vec<PathBuf>,
-    pub txt_candidates: Vec<PathBuf>,
 }
 
 /// 分卷文件正则：xxx.7z.001 或 xxx.001
@@ -94,7 +93,6 @@ pub fn scan_root_recursively(root_dir: &Path) -> Result<ScanResult, AppError> {
         volume_groups,
         extra_files,
         extra_dirs,
-        txt_candidates: Vec::new(),
     })
 }
 

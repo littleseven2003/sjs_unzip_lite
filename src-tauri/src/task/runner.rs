@@ -243,7 +243,7 @@ async fn run_task_inner(
         emit_log_and_file(app, log_writer, LogEvent::success("压缩包校验通过", None));
 
         // 清理无关文件
-        cleaner::clean_root_except(&ctx.root_dir, &[rar_file.clone()])?;
+        cleaner::clean_root_except(&ctx.root_dir, std::slice::from_ref(&rar_file))?;
         emit_log_and_file(app, log_writer, LogEvent::success("已清理无关文件", None));
 
         // 解压 rar
