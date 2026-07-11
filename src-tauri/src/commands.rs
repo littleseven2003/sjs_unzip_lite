@@ -119,17 +119,13 @@ pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
             let total_size: u64 = group.files.iter().map(|f| f.size).sum();
 
             // 检查缺失编号
-            let mut indexes: Vec<u32> = group.files.iter().map(|f| f.index).collect();
-            indexes.sort();
-            let missing_indexes: Vec<u32> = if !indexes.is_empty() {
-                let min = *indexes.first().unwrap();
-                let max = *indexes.last().unwrap();
-                (min..=max).filter(|i| !indexes.contains(i)).collect()
-            } else {
-                Vec::new()
-            };
+            let missing_indexes = scanner::missing_indexes_of(
+                &group.files.iter().map(|f| f.index).collect::<Vec<u32>>(),
+            );
 
             // 检查重复编号
+            let mut indexes: Vec<u32> = group.files.iter().map(|f| f.index).collect();
+            indexes.sort();
             let mut seen = std::collections::HashSet::new();
             let mut duplicate_indexes = Vec::new();
             for idx in &indexes {

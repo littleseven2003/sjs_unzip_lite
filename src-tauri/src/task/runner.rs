@@ -84,8 +84,7 @@ async fn run_task_inner(
     };
 
     // 检查分卷完整性
-    let indexes: Vec<u32> = volume_group.files.iter().map(|f| f.index).collect();
-    let missing = find_missing_indexes(&indexes);
+    let missing = scanner::missing_indexes(&volume_group);
     if !missing.is_empty() {
         return Err(AppError::MissingVolumeIndexes(missing));
     }
@@ -285,16 +284,6 @@ async fn run_task_inner(
     emit_log_and_file(app, log_writer, LogEvent::success("处理完成", None));
 
     Ok(())
-}
-
-/// 查找缺失的分卷编号
-fn find_missing_indexes(indexes: &[u32]) -> Vec<u32> {
-    if indexes.is_empty() {
-        return Vec::new();
-    }
-    let min = *indexes.iter().min().unwrap();
-    let max = *indexes.iter().max().unwrap();
-    (min..=max).filter(|i| !indexes.contains(i)).collect()
 }
 
 /// 查找 txt 候选文件

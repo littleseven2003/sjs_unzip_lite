@@ -98,6 +98,25 @@ pub fn scan_root_recursively(root_dir: &Path) -> Result<ScanResult, AppError> {
     })
 }
 
+/// 计算缺失的分卷编号
+///
+/// 在已有编号的最小值与最大值之间，找出未出现的编号。
+/// 用于 runner 与 preview 的统一缺失检测。
+pub fn missing_indexes_of(indexes: &[u32]) -> Vec<u32> {
+    if indexes.is_empty() {
+        return Vec::new();
+    }
+    let min = *indexes.iter().min().unwrap();
+    let max = *indexes.iter().max().unwrap();
+    (min..=max).filter(|i| !indexes.contains(i)).collect()
+}
+
+/// 计算分卷组中缺失的编号
+pub fn missing_indexes(group: &super::context::VolumeGroup) -> Vec<u32> {
+    let indexes: Vec<u32> = group.files.iter().map(|f| f.index).collect();
+    missing_indexes_of(&indexes)
+}
+
 /// 简易 UUID 生成（基于 base_name hash）
 fn uuid_from_base_name(base_name: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
