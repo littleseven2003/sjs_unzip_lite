@@ -2086,7 +2086,7 @@ final_folder_name: String
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-thiserror = "1"
+thiserror = "2"
 tokio = { version = "1", features = ["process", "fs", "rt-multi-thread"] }
 walkdir = "2"
 regex = "1"
