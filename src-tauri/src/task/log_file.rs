@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use chrono::Local;
+use regex::Regex;
 
 use crate::error::AppError;
 use crate::events::LogEvent;
@@ -144,26 +145,22 @@ impl LogFileWriter {
     }
 
     /// 过滤密码信息
+    ///
+    /// 遮蔽 7-Zip 命令行中携带的密码参数：`-p"secret"`、`-p'secret'`、`-psecret`，
+    /// 统一替换为 `-p***`，避免密码明文落入日志文件。
     fn filter_passwords(message: &str) -> String {
-        // 替换可能包含密码的内容
-        let patterns = [
-            ("password", "***"),
-            ("密码", "***"),
-            ("-p\"", "-p***"),
-            ("-p'", "-p***"),
-        ];
+        use std::sync::OnceLock;
 
-        let mut result = message.to_string();
-        for (pattern, replacement) in &patterns {
-            // 不区分大小写替换
-            let lower = result.to_lowercase();
-            if let Some(pos) = lower.find(pattern) {
-                let end = pos + pattern.len();
-                result = format!("{}{}{}", &result[..pos], replacement, &result[end..]);
-            }
-        }
+        static RE: OnceLock<Regex> = OnceLock::new();
+        let re = RE.get_or_init(|| {
+            // 三种形态依次匹配：
+            //   -p"..."   双引号包裹的密码
+            //   -p'...'   单引号包裹的密码
+            //   -p<token> 无引号、延续到下一个空白或字符串末尾的密码
+            Regex::new(r#"-p"(?:[^"\\]|\\.)*"|-p'(?:[^'\\]|\\.)*'|-p[^\s]*"#).unwrap()
+        });
 
-        result
+        re.replace_all(message, "-p***").to_string()
     }
 
     fn write_error(e: std::io::Error) -> AppError {
@@ -177,14 +174,30 @@ mod tests {
 
     #[test]
     fn test_filter_passwords() {
+        // 双引号包裹的密码：整段替换为 -p***
         assert_eq!(
-            LogFileWriter::filter_passwords("正在尝试密码：123456"),
-            "正在尝试***：123456"
+            LogFileWriter::filter_passwords(r#"7zz x a.rar -o"/root" -y -p"secret""#),
+            r#"7zz x a.rar -o"/root" -y -p***"#
         );
-        // 当前实现替换模式本身
+        // 单引号包裹的密码
         assert_eq!(
-            LogFileWriter::filter_passwords("使用 -p\"secret\" 解压"),
-            "使用 -p***secret\" 解压"
+            LogFileWriter::filter_passwords(r#"7zz x a.rar -p'secret' -y"#),
+            r#"7zz x a.rar -p*** -y"#
+        );
+        // 无引号、延续到空白为止的密码
+        assert_eq!(
+            LogFileWriter::filter_passwords("7zz x a.rar -psecret -y"),
+            "7zz x a.rar -p*** -y"
+        );
+        // 多个密码参数一并遮蔽
+        assert_eq!(
+            LogFileWriter::filter_passwords(r#"-p"a" then -p"b""#),
+            "-p*** then -p***"
+        );
+        // 无密码参数时保持原样
+        assert_eq!(
+            LogFileWriter::filter_passwords("正在尝试密码序号：3"),
+            "正在尝试密码序号：3"
         );
     }
 }
