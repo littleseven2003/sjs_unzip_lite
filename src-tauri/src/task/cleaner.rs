@@ -7,17 +7,23 @@ use std::path::{Path, PathBuf};
 use crate::error::AppError;
 
 /// 清理目录，保留指定文件
+///
+/// 安全约束（design 第 7.3、7.4 节）：
+/// - 删除前对每个目标做真实路径校验，确保仍在 `root_dir` 内，禁止 `..` 越界。
+/// - 跳过符号链接，不跟随链接删除其指向的真实路径。
 pub fn clean_root_except(root_dir: &Path, keep_paths: &[PathBuf]) -> Result<(), AppError> {
+    // 先固定工作目录的真实路径，后续逐项比对
+    let canonical_root = root_dir
+        .canonicalize()
+        .map_err(|e| AppError::DeleteFailed(format!("无法解析根目录：{} - {}", root_dir.display(), e)))?;
+
     for entry in std::fs::read_dir(root_dir).map_err(|e| AppError::DeleteFailed(e.to_string()))? {
         let entry = entry.map_err(|e| AppError::DeleteFailed(e.to_string()))?;
         let path = entry.path();
 
-        // 安全校验：确保路径在根目录内
-        if !path.starts_with(root_dir) {
-            return Err(AppError::DeleteFailed(format!(
-                "路径越界：{}",
-                path.display()
-            )));
+        // 跳过符号链接，不跟随
+        if super::safety::is_symlink(&path) {
+            continue;
         }
 
         // 跳过需要保留的文件
@@ -30,11 +36,15 @@ pub fn clean_root_except(root_dir: &Path, keep_paths: &[PathBuf]) -> Result<(), 
             continue;
         }
 
+        // 删除前真实路径校验：确保目标经 canonicalize 后仍位于根目录内
+        super::safety::validate_path_in_root(&path, &canonical_root)?;
+
         if path.is_dir() {
             std::fs::remove_dir_all(&path)
                 .map_err(|e| AppError::DeleteFailed(e.to_string()))?;
         } else {
-            std::fs::remove_file(&path).map_err(|e| AppError::DeleteFailed(e.to_string()))?;
+            std::fs::remove_file(&path)
+                .map_err(|e| AppError::DeleteFailed(e.to_string()))?;
         }
     }
 
@@ -42,10 +52,20 @@ pub fn clean_root_except(root_dir: &Path, keep_paths: &[PathBuf]) -> Result<(), 
 }
 
 /// 删除单个文件
+///
+/// 安全约束：跳过符号链接；文件不存在时静默跳过。
+/// 调用方须确保 `path` 位于工作目录内。
 pub fn delete_file(path: &Path) -> Result<(), AppError> {
-    if path.exists() {
-        std::fs::remove_file(path).map_err(|e| AppError::DeleteFailed(e.to_string()))?;
+    if !path.exists() {
+        return Ok(());
     }
+
+    // 跳过符号链接，避免误删链接指向的真实路径
+    if super::safety::is_symlink(path) {
+        return Ok(());
+    }
+
+    std::fs::remove_file(path).map_err(|e| AppError::DeleteFailed(e.to_string()))?;
     Ok(())
 }
 
