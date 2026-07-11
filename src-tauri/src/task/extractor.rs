@@ -117,9 +117,6 @@ async fn run_7zz_extract(
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
 
-    // 记录命令（用于调试）
-    eprintln!("[7zz] 执行命令: {:?}", cmd);
-
     // 启动子进程
     let child = cmd
         .spawn()
