@@ -85,7 +85,7 @@ mod tests {
         fs::write(&keep, b"keep").unwrap();
         fs::write(&remove, b"remove").unwrap();
 
-        clean_root_except(tmp.path(), &[keep.clone()]).unwrap();
+        clean_root_except(tmp.path(), std::slice::from_ref(&keep)).unwrap();
 
         assert!(keep.exists());
         assert!(!remove.exists());
