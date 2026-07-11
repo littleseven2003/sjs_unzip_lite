@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use crate::error::AppError;
 use super::context::VolumeGroup;
+use crate::error::AppError;
 
 /// 扫描结果
 #[derive(Debug)]
@@ -71,7 +71,10 @@ pub fn scan_root_recursively(root_dir: &Path) -> Result<ScanResult, AppError> {
     let mut groups: std::collections::HashMap<String, Vec<(u32, PathBuf, u64)>> =
         std::collections::HashMap::new();
     for (base_name, index, path, size) in volume_files {
-        groups.entry(base_name).or_default().push((index, path, size));
+        groups
+            .entry(base_name)
+            .or_default()
+            .push((index, path, size));
     }
 
     let volume_groups: Vec<VolumeGroup> = groups

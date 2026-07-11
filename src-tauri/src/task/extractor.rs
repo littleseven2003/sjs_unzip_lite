@@ -22,7 +22,7 @@ pub async fn validate_archive(app: &AppHandle, archive_path: &Path) -> Result<bo
     let bin_path = get_7zz_path(app)?;
 
     let mut cmd = tokio::process::Command::new(&bin_path);
-    cmd.arg("l")  // list 命令
+    cmd.arg("l") // list 命令
         .arg(archive_path);
 
     // 重定向 stdout 和 stderr
@@ -71,7 +71,10 @@ pub async fn extract_with_passwords(
         // 其他错误，停止
         let _ = std::fs::remove_dir_all(&temp_dir);
         let error_msg = if result.stderr.is_empty() {
-            format!("7zz退出码：{:?}, stdout: {}", result.exit_code, result.stdout)
+            format!(
+                "7zz退出码：{:?}, stdout: {}",
+                result.exit_code, result.stdout
+            )
         } else {
             result.stderr
         };
@@ -118,7 +121,7 @@ async fn run_7zz_extract(
     eprintln!("[7zz] 执行命令: {:?}", cmd);
 
     // 启动子进程
-    let mut child = cmd
+    let child = cmd
         .spawn()
         .map_err(|e| AppError::ExtractFailed(format!("启动7zz失败：{}", e)))?;
 
@@ -170,7 +173,8 @@ fn get_7zz_path(app: &AppHandle) -> Result<PathBuf, AppError> {
     // 尝试多种路径
     let possible_paths = vec![
         // 1. Tauri sidecar 路径（生产环境）
-        app.path().resource_dir()
+        app.path()
+            .resource_dir()
             .ok()
             .map(|p| p.join("binaries").join(bin_name)),
         // 2. 当前目录下的 src-tauri/binaries

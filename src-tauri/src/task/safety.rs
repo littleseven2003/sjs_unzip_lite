@@ -30,10 +30,7 @@ pub fn validate_root_dir(root_dir: &Path) -> Result<(), AppError> {
         return Err(AppError::InvalidRootDir(root_dir.display().to_string()));
     }
 
-    let normalized = root_dir
-        .to_string_lossy()
-        .replace('\\', "/")
-        .to_lowercase();
+    let normalized = root_dir.to_string_lossy().replace('\\', "/").to_lowercase();
 
     for dangerous in DANGEROUS_PATHS {
         if normalized == dangerous.to_lowercase() || normalized == dangerous.to_lowercase() + "/" {

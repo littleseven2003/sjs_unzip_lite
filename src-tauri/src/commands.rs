@@ -205,7 +205,10 @@ pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
     if volume_groups.len() > 1 {
         warnings.push(WarningItem {
             code: "MULTIPLE_GROUPS".to_string(),
-            message: format!("找到 {} 组分卷文件，将需要选择处理其中一组。", volume_groups.len()),
+            message: format!(
+                "找到 {} 组分卷文件，将需要选择处理其中一组。",
+                volume_groups.len()
+            ),
             detail: None,
         });
     }
@@ -236,7 +239,10 @@ pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
     if !extra_files.is_empty() {
         warnings.push(WarningItem {
             code: "EXTRA_FILES".to_string(),
-            message: format!("检测到 {} 个额外文件，继续处理可能会在后续清理步骤中删除这些内容。", extra_files.len()),
+            message: format!(
+                "检测到 {} 个额外文件，继续处理可能会在后续清理步骤中删除这些内容。",
+                extra_files.len()
+            ),
             detail: None,
         });
     }
@@ -290,7 +296,10 @@ pub async fn cancel_task(app: AppHandle) -> Result<(), AppError> {
 
     // 发送取消事件到前端
     use tauri::Emitter;
-    let _ = app.emit("task-log", crate::events::LogEvent::warning("用户请求取消任务", None));
+    let _ = app.emit(
+        "task-log",
+        crate::events::LogEvent::warning("用户请求取消任务", None),
+    );
 
     Ok(())
 }

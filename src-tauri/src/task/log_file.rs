@@ -46,18 +46,16 @@ impl LogFileWriter {
 
     /// 获取日志目录
     fn log_dir() -> Result<PathBuf, AppError> {
-        let config_dir = dirs::config_dir()
-            .ok_or_else(|| AppError::Unknown("无法获取配置目录".to_string()))?;
+        let config_dir =
+            dirs::config_dir().ok_or_else(|| AppError::Unknown("无法获取配置目录".to_string()))?;
         Ok(config_dir.join("sjs-unzip-tool").join("logs"))
     }
 
     /// 写入头部信息
-    pub fn write_header(
-        &self,
-        root_dir: &str,
-        final_folder_name: &str,
-    ) -> Result<(), AppError> {
-        let mut file = self.file.lock()
+    pub fn write_header(&self, root_dir: &str, final_folder_name: &str) -> Result<(), AppError> {
+        let mut file = self
+            .file
+            .lock()
             .map_err(|e| AppError::Unknown(format!("获取日志文件锁失败：{}", e)))?;
 
         let os_info = if cfg!(target_os = "macos") {
@@ -68,31 +66,29 @@ impl LogFileWriter {
             "Linux"
         };
 
-        writeln!(file, "========================================")
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "sjs-unzip-tool 日志")
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "========================================")
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "版本：{}", env!("CARGO_PKG_VERSION"))
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "操作系统：{}", os_info)
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "根目录：{}", root_dir)
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "最终文件夹名：{}", final_folder_name)
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "开始时间：{}", Local::now().format("%Y-%m-%d %H:%M:%S"))
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "========================================")
-            .map_err(|e| Self::write_error(e))?;
+        writeln!(file, "========================================").map_err(Self::write_error)?;
+        writeln!(file, "sjs-unzip-tool 日志").map_err(Self::write_error)?;
+        writeln!(file, "========================================").map_err(Self::write_error)?;
+        writeln!(file, "版本：{}", env!("CARGO_PKG_VERSION")).map_err(Self::write_error)?;
+        writeln!(file, "操作系统：{}", os_info).map_err(Self::write_error)?;
+        writeln!(file, "根目录：{}", root_dir).map_err(Self::write_error)?;
+        writeln!(file, "最终文件夹名：{}", final_folder_name).map_err(Self::write_error)?;
+        writeln!(
+            file,
+            "开始时间：{}",
+            Local::now().format("%Y-%m-%d %H:%M:%S")
+        )
+        .map_err(Self::write_error)?;
+        writeln!(file, "========================================").map_err(Self::write_error)?;
 
         Ok(())
     }
 
     /// 写入日志事件
     pub fn write_log(&self, event: &LogEvent) -> Result<(), AppError> {
-        let mut file = self.file.lock()
+        let mut file = self
+            .file
+            .lock()
             .map_err(|e| AppError::Unknown(format!("获取日志文件锁失败：{}", e)))?;
 
         let level_str = match event.level {
@@ -106,33 +102,34 @@ impl LogFileWriter {
         let message = Self::filter_passwords(&event.message);
         let detail = event.detail.as_deref().map(Self::filter_passwords);
 
-        write!(file, "[{}] {:<8} {}", event.time, level_str, message)
-            .map_err(|e| Self::write_error(e))?;
+        write!(file, "[{}] {:<8} {}", event.time, level_str, message).map_err(Self::write_error)?;
 
         if let Some(detail) = detail {
-            write!(file, " | {}", detail)
-                .map_err(|e| Self::write_error(e))?;
+            write!(file, " | {}", detail).map_err(Self::write_error)?;
         }
 
-        writeln!(file)
-            .map_err(|e| Self::write_error(e))?;
+        writeln!(file).map_err(Self::write_error)?;
 
         Ok(())
     }
 
     /// 写入尾部信息
     pub fn write_footer(&self, success: bool) -> Result<(), AppError> {
-        let mut file = self.file.lock()
+        let mut file = self
+            .file
+            .lock()
             .map_err(|e| AppError::Unknown(format!("获取日志文件锁失败：{}", e)))?;
 
-        writeln!(file, "========================================")
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "结束时间：{}", Local::now().format("%Y-%m-%d %H:%M:%S"))
-            .map_err(|e| Self::write_error(e))?;
+        writeln!(file, "========================================").map_err(Self::write_error)?;
+        writeln!(
+            file,
+            "结束时间：{}",
+            Local::now().format("%Y-%m-%d %H:%M:%S")
+        )
+        .map_err(Self::write_error)?;
         writeln!(file, "结果：{}", if success { "成功" } else { "失败" })
-            .map_err(|e| Self::write_error(e))?;
-        writeln!(file, "========================================")
-            .map_err(|e| Self::write_error(e))?;
+            .map_err(Self::write_error)?;
+        writeln!(file, "========================================").map_err(Self::write_error)?;
 
         Ok(())
     }

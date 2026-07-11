@@ -13,9 +13,9 @@ use crate::error::AppError;
 /// - 跳过符号链接，不跟随链接删除其指向的真实路径。
 pub fn clean_root_except(root_dir: &Path, keep_paths: &[PathBuf]) -> Result<(), AppError> {
     // 先固定工作目录的真实路径，后续逐项比对
-    let canonical_root = root_dir
-        .canonicalize()
-        .map_err(|e| AppError::DeleteFailed(format!("无法解析根目录：{} - {}", root_dir.display(), e)))?;
+    let canonical_root = root_dir.canonicalize().map_err(|e| {
+        AppError::DeleteFailed(format!("无法解析根目录：{} - {}", root_dir.display(), e))
+    })?;
 
     for entry in std::fs::read_dir(root_dir).map_err(|e| AppError::DeleteFailed(e.to_string()))? {
         let entry = entry.map_err(|e| AppError::DeleteFailed(e.to_string()))?;
@@ -32,7 +32,11 @@ pub fn clean_root_except(root_dir: &Path, keep_paths: &[PathBuf]) -> Result<(), 
         }
 
         // 跳过临时目录
-        if path.file_name().map(|n| n == ".sjs_unzip_temp").unwrap_or(false) {
+        if path
+            .file_name()
+            .map(|n| n == ".sjs_unzip_temp")
+            .unwrap_or(false)
+        {
             continue;
         }
 
@@ -40,11 +44,9 @@ pub fn clean_root_except(root_dir: &Path, keep_paths: &[PathBuf]) -> Result<(), 
         super::safety::validate_path_in_root(&path, &canonical_root)?;
 
         if path.is_dir() {
-            std::fs::remove_dir_all(&path)
-                .map_err(|e| AppError::DeleteFailed(e.to_string()))?;
+            std::fs::remove_dir_all(&path).map_err(|e| AppError::DeleteFailed(e.to_string()))?;
         } else {
-            std::fs::remove_file(&path)
-                .map_err(|e| AppError::DeleteFailed(e.to_string()))?;
+            std::fs::remove_file(&path).map_err(|e| AppError::DeleteFailed(e.to_string()))?;
         }
     }
 
