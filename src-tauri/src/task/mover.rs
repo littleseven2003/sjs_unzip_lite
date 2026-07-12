@@ -4,8 +4,8 @@
  */
 use std::path::{Path, PathBuf};
 
-use crate::error::AppError;
 use super::context::VolumeGroup;
+use crate::error::AppError;
 
 /// 将分卷组中的所有文件移动到目标目录
 pub fn move_volumes_to_root(volume_group: &VolumeGroup, target_dir: &Path) -> Result<(), AppError> {
@@ -51,7 +51,8 @@ pub fn remove_empty_source_folders(root_dir: &Path) -> Result<Vec<PathBuf>, AppE
     for entry in walkdir::WalkDir::new(root_dir)
         .follow_links(false)
         .min_depth(1)
-        .sort_by(|a, b| b.path().cmp(a.path())) // 深度优先
+        .sort_by(|a, b| b.path().cmp(a.path()))
+    // 深度优先
     {
         let entry = entry.map_err(|e| AppError::Unknown(e.to_string()))?;
         if entry.file_type().is_dir() {

@@ -55,7 +55,6 @@ pub fn check_cancelled() -> Result<(), crate::error::AppError> {
 fn kill_process(pid: u32) {
     #[cfg(unix)]
     {
-        use std::os::unix::process::CommandExt;
         unsafe {
             libc::kill(pid as i32, libc::SIGTERM);
         }

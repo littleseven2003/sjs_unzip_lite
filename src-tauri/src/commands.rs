@@ -119,17 +119,13 @@ pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
             let total_size: u64 = group.files.iter().map(|f| f.size).sum();
 
             // 检查缺失编号
-            let mut indexes: Vec<u32> = group.files.iter().map(|f| f.index).collect();
-            indexes.sort();
-            let missing_indexes: Vec<u32> = if !indexes.is_empty() {
-                let min = *indexes.first().unwrap();
-                let max = *indexes.last().unwrap();
-                (min..=max).filter(|i| !indexes.contains(i)).collect()
-            } else {
-                Vec::new()
-            };
+            let missing_indexes = scanner::missing_indexes_of(
+                &group.files.iter().map(|f| f.index).collect::<Vec<u32>>(),
+            );
 
             // 检查重复编号
+            let mut indexes: Vec<u32> = group.files.iter().map(|f| f.index).collect();
+            indexes.sort();
             let mut seen = std::collections::HashSet::new();
             let mut duplicate_indexes = Vec::new();
             for idx in &indexes {
@@ -209,7 +205,10 @@ pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
     if volume_groups.len() > 1 {
         warnings.push(WarningItem {
             code: "MULTIPLE_GROUPS".to_string(),
-            message: format!("找到 {} 组分卷文件，将需要选择处理其中一组。", volume_groups.len()),
+            message: format!(
+                "找到 {} 组分卷文件，将需要选择处理其中一组。",
+                volume_groups.len()
+            ),
             detail: None,
         });
     }
@@ -240,7 +239,10 @@ pub async fn preview_task(input: TaskInput) -> Result<TaskPreview, AppError> {
     if !extra_files.is_empty() {
         warnings.push(WarningItem {
             code: "EXTRA_FILES".to_string(),
-            message: format!("检测到 {} 个额外文件，继续处理可能会在后续清理步骤中删除这些内容。", extra_files.len()),
+            message: format!(
+                "检测到 {} 个额外文件，继续处理可能会在后续清理步骤中删除这些内容。",
+                extra_files.len()
+            ),
             detail: None,
         });
     }
@@ -294,7 +296,10 @@ pub async fn cancel_task(app: AppHandle) -> Result<(), AppError> {
 
     // 发送取消事件到前端
     use tauri::Emitter;
-    let _ = app.emit("task-log", crate::events::LogEvent::warning("用户请求取消任务", None));
+    let _ = app.emit(
+        "task-log",
+        crate::events::LogEvent::warning("用户请求取消任务", None),
+    );
 
     Ok(())
 }

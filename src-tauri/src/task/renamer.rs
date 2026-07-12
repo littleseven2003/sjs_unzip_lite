@@ -17,8 +17,7 @@ pub fn rename_txt_to_rar(txt_path: &Path) -> Result<PathBuf, AppError> {
 
     let new_path = txt_path.parent().unwrap_or(Path::new(".")).join(new_name);
 
-    std::fs::rename(txt_path, &new_path)
-        .map_err(|e| AppError::RenameFailed(e.to_string()))?;
+    std::fs::rename(txt_path, &new_path).map_err(|e| AppError::RenameFailed(e.to_string()))?;
 
     Ok(new_path)
 }
@@ -34,17 +33,13 @@ pub fn rename_rar_back_to_txt(rar_path: &Path) -> Result<PathBuf, AppError> {
 
     let new_path = rar_path.parent().unwrap_or(Path::new(".")).join(new_name);
 
-    std::fs::rename(rar_path, &new_path)
-        .map_err(|e| AppError::RenameFailed(e.to_string()))?;
+    std::fs::rename(rar_path, &new_path).map_err(|e| AppError::RenameFailed(e.to_string()))?;
 
     Ok(new_path)
 }
 
 /// 重命名根目录
-pub fn rename_root_folder(
-    root_dir: &Path,
-    final_name: &str,
-) -> Result<PathBuf, AppError> {
+pub fn rename_root_folder(root_dir: &Path, final_name: &str) -> Result<PathBuf, AppError> {
     let parent = root_dir
         .parent()
         .ok_or_else(|| AppError::RenameFailed("无法获取父目录".to_string()))?;
@@ -59,8 +54,7 @@ pub fn rename_root_folder(
         )));
     }
 
-    std::fs::rename(root_dir, &new_path)
-        .map_err(|e| AppError::RenameFailed(e.to_string()))?;
+    std::fs::rename(root_dir, &new_path).map_err(|e| AppError::RenameFailed(e.to_string()))?;
 
     Ok(new_path)
 }

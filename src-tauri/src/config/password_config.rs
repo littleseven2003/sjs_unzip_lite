@@ -28,8 +28,8 @@ impl Default for PasswordConfig {
 impl PasswordConfig {
     /// 获取配置文件路径
     pub fn config_path() -> Result<PathBuf, AppError> {
-        let config_dir = dirs::config_dir()
-            .ok_or_else(|| AppError::Unknown("无法获取配置目录".to_string()))?;
+        let config_dir =
+            dirs::config_dir().ok_or_else(|| AppError::Unknown("无法获取配置目录".to_string()))?;
         let app_dir = config_dir.join("sjs-unzip-tool");
         Ok(app_dir.join("passwords.json"))
     }
@@ -110,7 +110,12 @@ mod tests {
     fn test_normalized_passwords() {
         let config = PasswordConfig {
             version: 1,
-            passwords: vec!["".to_string(), "123".to_string(), "".to_string(), "456".to_string()],
+            passwords: vec![
+                "".to_string(),
+                "123".to_string(),
+                "".to_string(),
+                "456".to_string(),
+            ],
             updated_at: chrono::Local::now().to_rfc3339(),
         };
         let normalized = config.normalized_passwords();
