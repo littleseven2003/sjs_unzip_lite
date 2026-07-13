@@ -39,14 +39,14 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 安装 pnpm
-        run: npm install -g pnpm@9
-
       - name: 安装 Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+
+      - name: 启用 corepack（按 packageManager 锁定 pnpm 版本）
+        run: corepack enable
 
       - name: 安装 Rust stable
         uses: dtolnay/rust-toolchain@stable
