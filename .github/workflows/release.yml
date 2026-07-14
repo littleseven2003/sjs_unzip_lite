@@ -2,8 +2,8 @@
 # 基于 design.md 第 21 节（Sidecar 打包）与 AGENTS.md 第三节（分支与发布）
 #
 # 触发：
-#   - push 到 dev / main：仅构建三平台产物，验证可编译，不发布。
-#   - push tag v*：构建三平台产物并上传到 GitHub Release（预发布）。
+#   - push 到 dev / main：仅构建产物，验证可编译，不发布。
+#   - push tag v*：构建产物并上传到 GitHub Release（预发布）。
 name: build-release
 
 on:
@@ -27,9 +27,6 @@ jobs:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             args: "--target x86_64-pc-windows-msvc"
-          - platform: macos-13
-            target: x86_64-apple-darwin
-            args: "--target x86_64-apple-darwin"
           - platform: macos-14
             target: aarch64-apple-darwin
             args: "--target aarch64-apple-darwin"
@@ -39,14 +36,16 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
       - name: 安装 Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: 启用 corepack（按 packageManager 锁定 pnpm 版本）
-        run: corepack enable
 
       - name: 安装 Rust stable
         uses: dtolnay/rust-toolchain@stable
