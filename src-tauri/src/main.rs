@@ -1,25 +1,6 @@
-/**
- * Tauri 应用入口
- */
+// Tauri 应用入口：委托 sjs_unzip_lib::run，避免与 lib.rs 重复声明模块
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod commands;
-mod config;
-mod error;
-mod events;
-mod task;
-
 fn main() {
-    tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![
-            commands::get_app_config,
-            commands::load_passwords,
-            commands::save_passwords,
-            commands::preview_task,
-            commands::start_task,
-            commands::cancel_task,
-            commands::open_log_folder,
-        ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+    sjs_unzip_lib::run();
 }

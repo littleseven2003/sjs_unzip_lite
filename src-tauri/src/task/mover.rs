@@ -4,8 +4,8 @@
  */
 use std::path::{Path, PathBuf};
 
-use crate::error::AppError;
 use super::context::VolumeGroup;
+use crate::error::AppError;
 
 /// 将分卷组中的所有文件移动到目标目录
 pub fn move_volumes_to_root(volume_group: &VolumeGroup, target_dir: &Path) -> Result<(), AppError> {
@@ -16,6 +16,11 @@ pub fn move_volumes_to_root(volume_group: &VolumeGroup, target_dir: &Path) -> Re
             .ok_or_else(|| AppError::MoveFailed("无法获取文件名".to_string()))?;
         let dest = target_dir.join(file_name);
 
+        // 如果源文件和目标路径相同，跳过
+        if file.path == dest {
+            continue;
+        }
+
         // 检查目标是否已存在
         if dest.exists() {
             return Err(AppError::MoveFailed(format!(
@@ -24,14 +29,14 @@ pub fn move_volumes_to_root(volume_group: &VolumeGroup, target_dir: &Path) -> Re
             )));
         }
 
-        std::fs::rename(&file.path, &dest).map_err(|e| {
+        std::fs::rename(&file.path, &dest).or_else(|e| {
             // 跨磁盘时 rename 会失败，尝试 copy + delete
             if e.kind() == std::io::ErrorKind::CrossesDevices {
                 std::fs::copy(&file.path, &dest)
                     .and_then(|_| std::fs::remove_file(&file.path))
                     .map_err(|e2| AppError::MoveFailed(e2.to_string()))
             } else {
-                AppError::MoveFailed(e.to_string())
+                Err(AppError::MoveFailed(e.to_string()))
             }
         })?;
     }
@@ -46,7 +51,8 @@ pub fn remove_empty_source_folders(root_dir: &Path) -> Result<Vec<PathBuf>, AppE
     for entry in walkdir::WalkDir::new(root_dir)
         .follow_links(false)
         .min_depth(1)
-        .sort_by(|a, b| b.path().cmp(a.path())) // 深度优先
+        .sort_by(|a, b| b.path().cmp(a.path()))
+    // 深度优先
     {
         let entry = entry.map_err(|e| AppError::Unknown(e.to_string()))?;
         if entry.file_type().is_dir() {

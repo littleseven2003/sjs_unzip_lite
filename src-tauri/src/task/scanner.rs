@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use crate::error::AppError;
 use super::context::VolumeGroup;
+use crate::error::AppError;
 
 /// 扫描结果
 #[derive(Debug)]
@@ -15,7 +15,6 @@ pub struct ScanResult {
     pub volume_groups: Vec<VolumeGroup>,
     pub extra_files: Vec<PathBuf>,
     pub extra_dirs: Vec<PathBuf>,
-    pub txt_candidates: Vec<PathBuf>,
 }
 
 /// 分卷文件正则：xxx.7z.001 或 xxx.001
@@ -72,7 +71,10 @@ pub fn scan_root_recursively(root_dir: &Path) -> Result<ScanResult, AppError> {
     let mut groups: std::collections::HashMap<String, Vec<(u32, PathBuf, u64)>> =
         std::collections::HashMap::new();
     for (base_name, index, path, size) in volume_files {
-        groups.entry(base_name).or_default().push((index, path, size));
+        groups
+            .entry(base_name)
+            .or_default()
+            .push((index, path, size));
     }
 
     let volume_groups: Vec<VolumeGroup> = groups
@@ -94,8 +96,26 @@ pub fn scan_root_recursively(root_dir: &Path) -> Result<ScanResult, AppError> {
         volume_groups,
         extra_files,
         extra_dirs,
-        txt_candidates: Vec::new(),
     })
+}
+
+/// 计算缺失的分卷编号
+///
+/// 在已有编号的最小值与最大值之间，找出未出现的编号。
+/// 用于 runner 与 preview 的统一缺失检测。
+pub fn missing_indexes_of(indexes: &[u32]) -> Vec<u32> {
+    if indexes.is_empty() {
+        return Vec::new();
+    }
+    let min = *indexes.iter().min().unwrap();
+    let max = *indexes.iter().max().unwrap();
+    (min..=max).filter(|i| !indexes.contains(i)).collect()
+}
+
+/// 计算分卷组中缺失的编号
+pub fn missing_indexes(group: &super::context::VolumeGroup) -> Vec<u32> {
+    let indexes: Vec<u32> = group.files.iter().map(|f| f.index).collect();
+    missing_indexes_of(&indexes)
 }
 
 /// 简易 UUID 生成（基于 base_name hash）

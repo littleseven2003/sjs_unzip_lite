@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicegui/multi-user-todo-list/refs/heads/main/src-tauri/tauri.conf.json",
+  "$schema": "https://schema.tauri.app/config/2",
   "productName": "sjs-unzip-tool",
   "version": "0.1.0",
   "identifier": "com.littleseven.sjs-unzip-tool",
@@ -25,13 +25,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "dmg"],
     "icon": [
-      "icons/32x32.png",
+      "icons/icon.ico",
+      "icons/icon.icns",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/32x32.png"
     ],
     "externalBin": ["binaries/7zz"]
   }

@@ -10,6 +10,9 @@ pub enum AppError {
     #[error("无效的根目录：{0}")]
     InvalidRootDir(String),
 
+    #[error("无效的最终文件夹名：{0}")]
+    InvalidFolderName(String),
+
     #[error("危险的根目录：{0}")]
     DangerousRootDir(String),
 
